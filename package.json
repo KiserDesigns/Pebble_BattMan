@@ -1,18 +1,18 @@
 {
-    "author": "MakeAwesomeHappen",
+    "author": "KiserDesigns",
     "dependencies": {
         "@rebble/clay": "^1.0.8"
     },
     "keywords": [
         "pebble-app"
     ],
-    "name": "watchface-tutorial",
+    "name": "battman",
     "pebble": {
         "capabilities": [
             "location",
             "configurable"
         ],
-        "displayName": "Tutorial Watchface",
+        "displayName": "BattMan",
         "enableMultiJS": true,
         "messageKeys": [
             "TEMPERATURE",
@@ -27,21 +27,27 @@
         "resources": {
             "media": [
                 {
-                    "file": "images/bt-icon.png",
-                    "name": "IMAGE_BT_ICON",
+                    "file": "images/battman",
+                    "memoryFormat": "1Bit",
+                    "menuIcon": true,
+                    "name": "BATTMAN_ICON",
+                    "targetPlatforms": null,
                     "type": "bitmap"
                 }
             ]
         },
         "sdkVersion": "3",
         "targetPlatforms": [
+            "aplite",
+            "basalt",
+            "diorite",
             "emery",
             "flint"
         ],
-        "uuid": "2bcf0f2b-9ea3-4aeb-b378-c69fead0ef2b",
+        "uuid": "9b8fb8c2-501b-4f0e-acc9-b22d1e74a01b",
         "watchapp": {
             "watchface": true
         }
     },
-    "version": "1.0.0"
+    "version": "0.0.1"
 }

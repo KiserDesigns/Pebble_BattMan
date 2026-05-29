@@ -99,6 +99,7 @@ static void prv_update_display() {
   text_layer_set_text_color(s_time_layer, settings.TextColor);
   text_layer_set_text_color(s_date_layer, settings.TextColor);
   text_layer_set_text_color(s_weather_layer, settings.TextColor);
+  text_layer_set_text_color(s_batt_data_layer, settings.TextColor);
 
   // Show/hide date based on setting
   layer_set_hidden(text_layer_get_layer(s_date_layer), !settings.ShowDate);
@@ -307,9 +308,9 @@ static void bluetooth_callback(bool connected) {
   // Show icon if disconnected
   //layer_set_hidden(bitmap_layer_get_layer(s_bt_icon_layer), connected);
 
-  if (!connected) {
-    vibes_double_pulse();
-  }
+  //if (!connected) {
+  //  vibes_double_pulse();
+  //}
 }
 
 // AppMessage received handler
@@ -444,9 +445,7 @@ static void main_window_load(Window *window) {
   int date_y = time_y + 54;
   int batt_y = date_y + 34;
   int bar_y = 65;
-  #endif
-  
-  #ifdef PBL_PLATFORM_FLINT
+  #else
   // Load custom fonts
   s_time_font = fonts_get_system_font(FONT_KEY_BITHAM_34_MEDIUM_NUMBERS);
   s_date_font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
@@ -534,10 +533,10 @@ static void main_window_unload(Window *window) {
   text_layer_destroy(s_date_layer);
   text_layer_destroy(s_weather_layer);
   text_layer_destroy(s_batt_data_layer);
-  fonts_unload_custom_font(s_time_font);
-  fonts_unload_custom_font(s_date_font);
+  //fonts_unload_custom_font(s_time_font);
+  //fonts_unload_custom_font(s_date_font);
   layer_destroy(s_battery_layer);
-  gbitmap_destroy(s_bt_icon_bitmap);
+  //gbitmap_destroy(s_bt_icon_bitmap);
   //bitmap_layer_destroy(s_bt_icon_layer);
 }
 
