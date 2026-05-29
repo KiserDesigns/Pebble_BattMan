@@ -28,6 +28,7 @@ static GFont s_date_font;
 // Battery
 static Layer *s_battery_layer;
 static int s_battery_level;
+static bool s_charging;
 
 // Define our battery data struct
 typedef struct BatteryData {
@@ -198,6 +199,7 @@ static void prv_set_batt_data_text(int percent, int rate, bool charging){
 
 static void battery_callback(BatteryChargeState state) {
   s_battery_level = state.charge_percent;
+  s_charging = state.is_charging;
   layer_mark_dirty(s_battery_layer); 
   
   //do calculations
@@ -282,6 +284,23 @@ static void battery_update_proc(Layer *layer, GContext *ctx) {
   
   // Draw battery nubbin
   graphics_fill_rect(ctx, GRect(bounds.size.w-2, bounds.size.h/2 - 2, 2, 4), 1, GCornerNone);
+  
+  // if charging, draw a lightning bolt in the middle
+  if (s_charging){
+    graphics_context_set_stroke_width(ctx, 1);
+    //graphics_draw_line(ctx, GPoint(bounds.size.w/2-1,0), GPoint(bounds.size.w/2-1,bounds.size.h));
+    int i;
+    graphics_context_set_stroke_color(ctx, settings.BackgroundColor);
+    for (i = 0; i <= bounds.size.h/2 + 1; i++){
+      graphics_draw_line(ctx, GPoint(bounds.size.w/2-2-(i/2),i), GPoint(bounds.size.w/2,i));
+      graphics_draw_line(ctx, GPoint(bounds.size.w/2-1+(i/2),bounds.size.h-i-1), GPoint(bounds.size.w/2-3,bounds.size.h-i-1));
+    }
+    graphics_context_set_stroke_color(ctx, settings.TextColor);
+    for (i = 0; i <= bounds.size.h/2; i++){ 
+      graphics_draw_line(ctx, GPoint(bounds.size.w/2-1-(i/2),i), GPoint(bounds.size.w/2-1,i));
+      graphics_draw_line(ctx, GPoint(bounds.size.w/2-2+(i/2),bounds.size.h-i-1), GPoint(bounds.size.w/2-2,bounds.size.h-i-1));
+    }
+  }
 }
 
 static void bluetooth_callback(bool connected) {
@@ -370,12 +389,12 @@ static void outbox_sent_callback(DictionaryIterator *iterator, void *context) {
 // Unobstructed area handlers
 static void prv_unobstructed_will_change(GRect final_unobstructed_screen_area, void *context) {
   // Hide weather during the transition to reduce clutter
-  layer_set_hidden(text_layer_get_layer(s_weather_layer), true);
+  //layer_set_hidden(text_layer_get_layer(s_weather_layer), true);
 }
 
 static void prv_unobstructed_change(AnimationProgress progress, void *context) {
   GRect bounds = layer_get_unobstructed_bounds(s_window_layer);
-
+  bounds = layer_get_bounds(s_window_layer);
   // Reposition time, date, and weather to fit in the available space
   //int date_height = 30;
   //int block_height = 56 + date_height;
@@ -470,7 +489,7 @@ static void main_window_load(Window *window) {
   text_layer_set_background_color(s_batt_data_layer, GColorClear);
   text_layer_set_text_color(s_batt_data_layer, settings.TextColor);
   text_layer_set_font(s_batt_data_layer, s_date_font);
-  text_layer_set_text_alignment(s_batt_data_layer, GTextAlignmentLeft);
+  text_layer_set_text_alignment(s_batt_data_layer, GTextAlignmentRight);
   text_layer_set_text(s_batt_data_layer, "Battery Data");
 
   // Create battery meter Layer — visible bar near the top
