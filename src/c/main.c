@@ -186,13 +186,19 @@ static void prv_set_batt_data_text(int percent, int rate, bool charging){
   
   prv_format_seconds_elapsed(eta, eta_buffer, sizeof(eta_buffer));
   
-  if (rate == -2){ // waiting for 2 samples. App just started, or charging status just changed
-    snprintf(batt_data_buffer, sizeof(batt_data_buffer), "%d%%, %s left\n%s/%% avg.", percent, eta_buffer, avg_rate_buffer);
-  } else if (rate == -1){
-    snprintf(batt_data_buffer, sizeof(batt_data_buffer), "%d%%, %s left\n%s/%% avg", percent, eta_buffer, avg_rate_buffer);
+  if (rate < 0){ // waiting for samples. App just started, or charging status just changed
+    if (charging){
+      snprintf(batt_data_buffer, sizeof(batt_data_buffer), "%d%%, full in %s\nrate: %s/1%%", percent, eta_buffer, avg_rate_buffer);
+    } else {
+      snprintf(batt_data_buffer, sizeof(batt_data_buffer), "%d%%, %s left\nrate: %s/1%%", percent, eta_buffer, avg_rate_buffer);
+    }
   } else {
     prv_format_seconds_elapsed(rate, rate_buffer, sizeof(rate_buffer));
-    snprintf(batt_data_buffer, sizeof(batt_data_buffer), "%d%%, %s left\n%s/%% raw", percent, eta_buffer, rate_buffer);
+    if (charging){
+      snprintf(batt_data_buffer, sizeof(batt_data_buffer), "%d%%, full in %s\n%s/1%% incr", percent, eta_buffer, rate_buffer);
+    } else {
+      snprintf(batt_data_buffer, sizeof(batt_data_buffer), "%d%%, %s left\n%s/1%% drop", percent, eta_buffer, rate_buffer);
+    }
   }
   
   text_layer_set_text(s_batt_data_layer, batt_data_buffer);
@@ -445,10 +451,19 @@ static void main_window_load(Window *window) {
   int date_y = time_y + 54;
   int batt_y = date_y + 34;
   int bar_y = 65;
+  #elif PBL_PLATFORM_CHALK
+  // Load custom fonts
+  s_time_font = fonts_get_system_font(FONT_KEY_BITHAM_34_MEDIUM_NUMBERS);
+  s_date_font = fonts_get_system_font(FONT_KEY_GOTHIC_18);
+  #define date_time_padding 10
+  int time_y = 54;
+  int date_y = 30;
+  int batt_y = 95;
+  int bar_y = 10;
   #else
   // Load custom fonts
   s_time_font = fonts_get_system_font(FONT_KEY_BITHAM_34_MEDIUM_NUMBERS);
-  s_date_font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
+  s_date_font = fonts_get_system_font(FONT_KEY_GOTHIC_18);
   #define date_time_padding 10
   int time_y = 0;
   int date_y = time_y + 44;
@@ -462,7 +477,7 @@ static void main_window_load(Window *window) {
   text_layer_set_background_color(s_time_layer, GColorClear);
   text_layer_set_text_color(s_time_layer, settings.TextColor);
   text_layer_set_font(s_time_layer, s_time_font);
-  text_layer_set_text_alignment(s_time_layer, GTextAlignmentLeft);
+  text_layer_set_text_alignment(s_time_layer, PBL_IF_RECT_ELSE (GTextAlignmentLeft, GTextAlignmentCenter));
 
   // Create the date TextLayer — just below the time
   s_date_layer = text_layer_create(
@@ -470,7 +485,7 @@ static void main_window_load(Window *window) {
   text_layer_set_background_color(s_date_layer, GColorClear);
   text_layer_set_text_color(s_date_layer, settings.TextColor);
   text_layer_set_font(s_date_layer, s_date_font);
-  text_layer_set_text_alignment(s_date_layer, GTextAlignmentLeft);
+  text_layer_set_text_alignment(s_date_layer, PBL_IF_RECT_ELSE (GTextAlignmentLeft, GTextAlignmentCenter));
 
   // Create weather TextLayer — aligned to the bottom of the screen
   int weather_y = bounds.size.h - 40;
@@ -479,7 +494,7 @@ static void main_window_load(Window *window) {
   text_layer_set_background_color(s_weather_layer, GColorClear);
   text_layer_set_text_color(s_weather_layer, settings.TextColor);
   text_layer_set_font(s_weather_layer, s_date_font);
-  text_layer_set_text_alignment(s_weather_layer, GTextAlignmentLeft);
+  text_layer_set_text_alignment(s_weather_layer, PBL_IF_RECT_ELSE (GTextAlignmentLeft, GTextAlignmentCenter));
   text_layer_set_text(s_weather_layer, "Loading...");
   
   // Create battery data TextLayer — just below the date
@@ -488,12 +503,15 @@ static void main_window_load(Window *window) {
   text_layer_set_background_color(s_batt_data_layer, GColorClear);
   text_layer_set_text_color(s_batt_data_layer, settings.TextColor);
   text_layer_set_font(s_batt_data_layer, s_date_font);
-  text_layer_set_text_alignment(s_batt_data_layer, GTextAlignmentRight);
+  text_layer_set_text_alignment(s_batt_data_layer, PBL_IF_RECT_ELSE (GTextAlignmentRight, GTextAlignmentCenter));
   text_layer_set_text(s_batt_data_layer, "Battery Data");
 
   // Create battery meter Layer — visible bar near the top
   int bar_width = 34;
   int bar_x = (bounds.size.w - bar_width - date_time_padding);
+  #ifndef PBL_RECT
+  bar_x = (bounds.size.w - bar_width) / 2;
+  #endif
   s_battery_layer = layer_create(GRect(bar_x, bar_y, bar_width, 12));
   layer_set_update_proc(s_battery_layer, battery_update_proc);
 
