@@ -18,13 +18,22 @@ module.exports = [
         "type": "color",
         "messageKey": "BackgroundColor",
         "defaultValue": "0x000000",
-        "label": "Background Color"
+        "label": "Background Color",
+        "capabilities": ["COLOR"]
       },
       {
         "type": "color",
         "messageKey": "TextColor",
         "defaultValue": "0xFFFFFF",
-        "label": "Text Color"
+        "label": "Text Color",
+        "capabilities": ["COLOR"]
+      },
+      {
+        "type": "color",
+        "messageKey": "BackgroundColor",
+        "defaultValue": "0x000000",
+        "label": "Color Theme",
+        "capabilities": ["BW"]
       }
     ]
   },

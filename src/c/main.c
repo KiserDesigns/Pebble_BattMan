@@ -24,6 +24,7 @@ static TextLayer *s_batt_data_layer;
 // Custom fonts
 static GFont s_time_font;
 static GFont s_date_font;
+static GFont s_info_font;
 
 // Battery
 static Layer *s_battery_layer;
@@ -188,14 +189,14 @@ static void prv_set_batt_data_text(int percent, int rate, bool charging){
   
   if (rate < 0){ // waiting for samples. App just started, or charging status just changed
     if (charging){
-      snprintf(batt_data_buffer, sizeof(batt_data_buffer), "%d%%, full in %s\nrate: %s/1%%", percent, eta_buffer, avg_rate_buffer);
+      snprintf(batt_data_buffer, sizeof(batt_data_buffer), "%d%%, full in %s\n%s/1%% chrg", percent, eta_buffer, avg_rate_buffer);
     } else {
-      snprintf(batt_data_buffer, sizeof(batt_data_buffer), "%d%%, %s left\nrate: %s/1%%", percent, eta_buffer, avg_rate_buffer);
+      snprintf(batt_data_buffer, sizeof(batt_data_buffer), "%d%%, %s left\n%s/1%% drop", percent, eta_buffer, avg_rate_buffer);
     }
   } else {
     prv_format_seconds_elapsed(rate, rate_buffer, sizeof(rate_buffer));
     if (charging){
-      snprintf(batt_data_buffer, sizeof(batt_data_buffer), "%d%%, full in %s\n%s/1%% incr", percent, eta_buffer, rate_buffer);
+      snprintf(batt_data_buffer, sizeof(batt_data_buffer), "%d%%, full in %s\n%s/1%% chrg", percent, eta_buffer, rate_buffer);
     } else {
       snprintf(batt_data_buffer, sizeof(batt_data_buffer), "%d%%, %s left\n%s/1%% drop", percent, eta_buffer, rate_buffer);
     }
@@ -349,6 +350,9 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
   Tuple *bg_color_t = dict_find(iterator, MESSAGE_KEY_BackgroundColor);
   if (bg_color_t) {
     settings.BackgroundColor = GColorFromHEX(bg_color_t->value->int32);
+    #ifdef PBL_BW
+    settings.TextColor = gcolor_equal(GColorBlack, settings.BackgroundColor) ? GColorWhite : GColorBlack;
+    #endif
   }
 
   Tuple *text_color_t = dict_find(iterator, MESSAGE_KEY_TextColor);
@@ -446,6 +450,7 @@ static void main_window_load(Window *window) {
   // Load custom fonts
   s_time_font = fonts_get_system_font(FONT_KEY_ROBOTO_BOLD_SUBSET_49);
   s_date_font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
+  s_info_font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
   #define date_time_padding 15
   int time_y = 0;
   int date_y = time_y + 54;
@@ -454,7 +459,8 @@ static void main_window_load(Window *window) {
   #elif PBL_PLATFORM_CHALK
   // Load custom fonts
   s_time_font = fonts_get_system_font(FONT_KEY_BITHAM_34_MEDIUM_NUMBERS);
-  s_date_font = fonts_get_system_font(FONT_KEY_GOTHIC_18);
+  s_date_font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
+  s_info_font = fonts_get_system_font(FONT_KEY_GOTHIC_18);
   #define date_time_padding 10
   int time_y = 54;
   int date_y = 30;
@@ -463,7 +469,8 @@ static void main_window_load(Window *window) {
   #else
   // Load custom fonts
   s_time_font = fonts_get_system_font(FONT_KEY_BITHAM_34_MEDIUM_NUMBERS);
-  s_date_font = fonts_get_system_font(FONT_KEY_GOTHIC_18);
+  s_date_font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
+  s_info_font = fonts_get_system_font(FONT_KEY_GOTHIC_18);
   #define date_time_padding 10
   int time_y = 0;
   int date_y = time_y + 44;
@@ -493,7 +500,7 @@ static void main_window_load(Window *window) {
       GRect(date_time_padding, weather_y, bounds.size.w - (2*date_time_padding), 30));
   text_layer_set_background_color(s_weather_layer, GColorClear);
   text_layer_set_text_color(s_weather_layer, settings.TextColor);
-  text_layer_set_font(s_weather_layer, s_date_font);
+  text_layer_set_font(s_weather_layer, s_info_font);
   text_layer_set_text_alignment(s_weather_layer, PBL_IF_RECT_ELSE (GTextAlignmentLeft, GTextAlignmentCenter));
   text_layer_set_text(s_weather_layer, "Loading...");
   
@@ -502,7 +509,7 @@ static void main_window_load(Window *window) {
       GRect(date_time_padding, batt_y, bounds.size.w - (2*date_time_padding), 70));
   text_layer_set_background_color(s_batt_data_layer, GColorClear);
   text_layer_set_text_color(s_batt_data_layer, settings.TextColor);
-  text_layer_set_font(s_batt_data_layer, s_date_font);
+  text_layer_set_font(s_batt_data_layer, s_info_font);
   text_layer_set_text_alignment(s_batt_data_layer, PBL_IF_RECT_ELSE (GTextAlignmentRight, GTextAlignmentCenter));
   text_layer_set_text(s_batt_data_layer, "Battery Data");
 
