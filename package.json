@@ -43,6 +43,7 @@
             "chalk",
             "diorite",
             "emery",
+            "gabbro",
             "flint"
         ],
         "uuid": "9b8fb8c2-501b-4f0e-acc9-b22d1e74a01b",
@@ -50,5 +51,5 @@
             "watchface": true
         }
     },
-    "version": "0.0.2"
+    "version": "0.0.3"
 }

@@ -420,6 +420,9 @@ static void prv_unobstructed_change(AnimationProgress progress, void *context) {
   //int time_y = (bounds.size.h / 2) - (block_height / 2) - 10;
   //int date_y = time_y + 56;
   int weather_y = bounds.size.h - 40;
+  #ifdef PBL_PLATFORM_GABBRO
+  weather_y = bounds.size.h - 55;
+  #endif
 
   GRect time_frame = layer_get_frame(text_layer_get_layer(s_time_layer));
 //  time_frame.origin.y = time_y;
@@ -464,6 +467,8 @@ static void main_window_load(Window *window) {
   int date_y = time_y + 54;
   int batt_y = date_y + 34;
   int bar_y = 65;
+  int weather_y = bounds.size.h - 40;
+  
   #elif PBL_PLATFORM_CHALK
   // Load custom fonts
   s_time_font = fonts_get_system_font(FONT_KEY_BITHAM_34_MEDIUM_NUMBERS);
@@ -474,6 +479,20 @@ static void main_window_load(Window *window) {
   int date_y = 30;
   int batt_y = 95;
   int bar_y = 10;
+  int weather_y = bounds.size.h - 40;
+  
+  #elif PBL_PLATFORM_GABBRO
+  // Load custom fonts
+  s_time_font = fonts_get_system_font(FONT_KEY_ROBOTO_BOLD_SUBSET_49);
+  s_date_font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
+  s_info_font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
+  #define date_time_padding 10
+  int time_y = 74;
+  int date_y = 42;
+  int batt_y = 130;
+  int bar_y = 20;
+  int weather_y = bounds.size.h - 55;
+  
   #else
   // Load custom fonts
   s_time_font = fonts_get_system_font(FONT_KEY_BITHAM_34_MEDIUM_NUMBERS);
@@ -484,6 +503,7 @@ static void main_window_load(Window *window) {
   int date_y = time_y + 44;
   int batt_y = date_y + 24;
   int bar_y = 50;
+  int weather_y = bounds.size.h - 40;
   #endif
 
   // Create the time TextLayer
@@ -503,7 +523,6 @@ static void main_window_load(Window *window) {
   text_layer_set_text_alignment(s_date_layer, PBL_IF_RECT_ELSE (GTextAlignmentLeft, GTextAlignmentCenter));
 
   // Create weather TextLayer — aligned to the bottom of the screen
-  int weather_y = bounds.size.h - 40;
   s_weather_layer = text_layer_create(
       GRect(date_time_padding, weather_y, bounds.size.w - (2*date_time_padding), 30));
   text_layer_set_background_color(s_weather_layer, GColorClear);
