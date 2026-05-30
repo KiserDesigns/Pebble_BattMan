@@ -19,6 +19,8 @@ module.exports = [
         "messageKey": "BackgroundColor",
         "defaultValue": "0x000000",
         "label": "Background Color",
+        "layout": [["0x000000", "0x550000", "0x555500", "0x005500", "0x005555", "0x000055", "0x550055"],
+                   ["0xFFFFFF", "0xFFAAAA", "0xFFFFAA", "0xAAFFAA", "0xAAFFFF", "0xAAAAFF", "0xFFAAFF"]],
         "capabilities": ["COLOR"]
       },
       {
@@ -26,6 +28,8 @@ module.exports = [
         "messageKey": "TextColor",
         "defaultValue": "0xFFFFFF",
         "label": "Text Color",
+        "layout": [["0x000000", "0x550000", "0x555500", "0x005500", "0x005555", "0x000055", "0x550055"],
+                   ["0xFFFFFF", "0xFFAAAA", "0xFFFFAA", "0xAAFFAA", "0xAAFFFF", "0xAAAAFF", "0xFFAAFF"]],
         "capabilities": ["COLOR"]
       },
       {
@@ -35,6 +39,7 @@ module.exports = [
         "label": "Color Theme",
         "capabilities": ["BW"]
       }
+      
     ]
   },
   {

@@ -353,6 +353,14 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
     #ifdef PBL_BW
     settings.TextColor = gcolor_equal(GColorBlack, settings.BackgroundColor) ? GColorWhite : GColorBlack;
     #endif
+    
+    //#ifdef PBL_COLOR
+    //if(bg_color_t->value->int32 > 0x888888) { //bright background of 0xFF or 0xAA for each color, subtract 0xAAAAAA to make it 0x55 or 0x00
+    //  settings.TextColor = GColorFromHEX(bg_color_t->value->int32 - 0xAAAAAA);
+    //} else { //dark background of 0x55 or 0x00 for each color, add 0xAAAAAA to make it 0xFF or 0xAA
+    //  settings.TextColor = GColorFromHEX(bg_color_t->value->int32 + 0xAAAAAA);
+    //}
+    //#endif
   }
 
   Tuple *text_color_t = dict_find(iterator, MESSAGE_KEY_TextColor);
