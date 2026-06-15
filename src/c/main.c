@@ -1,4 +1,6 @@
 #include <pebble.h>
+#include <battman/battman.h>
+extern BattManStruct battman;
 
 // Persistent storage key
 #define SETTINGS_KEY 1
@@ -31,19 +33,6 @@ static Layer *s_battery_layer;
 static int s_battery_level;
 static bool s_charging;
 
-// Define our battery data struct
-typedef struct BatteryData {
-  int seconds_per_percent_discharging;
-  int seconds_per_percent_charging;
-} BatteryData;
-
-// An instance of the struct
-static BatteryData batt_data;
-
-static int sample_percent;
-static bool sample_charging;
-static time_t sample_time;
-
 // Bluetooth
 static BitmapLayer *s_bt_icon_layer;
 static GBitmap *s_bt_icon_bitmap;
@@ -59,20 +48,10 @@ static void prv_default_settings() {
   settings.ShowDate = true;
 }
 
-// Set default battery data
-static void prv_default_batt_data() {
-  batt_data.seconds_per_percent_discharging = 6048; //6048 * 100 = 604800 seconds = 7 days 
-  batt_data.seconds_per_percent_charging = 60; //one minute per percent, fully charged in 1 hour 40 minutes
-}
 
 // Save settings to persistent storage
 static void prv_save_settings() {
   persist_write_data(SETTINGS_KEY, &settings, sizeof(settings));
-}
-
-// Save battery data to persistent storage
-static void prv_save_batt_data() {
-  persist_write_data(BATT_DATA_KEY, &batt_data, sizeof(batt_data));
 }
 
 // Read settings from persistent storage
@@ -81,14 +60,6 @@ static void prv_load_settings() {
   prv_default_settings();
   // Then override with any saved values
   persist_read_data(SETTINGS_KEY, &settings, sizeof(settings));
-}
-
-// Read battery data from persistent storage
-static void prv_load_batt_data() {
-  // Set defaults first
-  prv_default_batt_data();
-  // Then override with any saved values
-  persist_read_data(BATT_DATA_KEY, &batt_data, sizeof(batt_data));
 }
 
 // Apply settings to UI elements
@@ -121,6 +92,8 @@ static void update_time() {
   static char s_date_buffer[16];
   strftime(s_date_buffer, sizeof(s_date_buffer), "%a, %b %d", tick_time);
   text_layer_set_text(s_date_layer, s_date_buffer);
+  
+  battman.process();
 }
 
 static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
@@ -144,22 +117,27 @@ static void prv_format_seconds_elapsed(int e_seconds, char* e_buffer, int e_buff
     snprintf(e_buffer, e_buff_size, "<0s");
     return;
   }
-  if (e_seconds <= 90){ //XXs
-    snprintf(e_buffer, e_buff_size, "%ds", e_seconds);
-  } else if (e_seconds < 3600) { // < 1 hour, XXmXXs
-    int e_minutes = e_seconds / 60;
-    e_seconds = e_seconds - (e_minutes * 60);
-    snprintf(e_buffer, e_buff_size, "%dm%ds", e_minutes, e_seconds);
-  } else if (e_seconds < 172800) { // < 48 hours, XXhXXm
-    int e_hours = e_seconds / 3600;
-    int e_minutes = (e_seconds - (e_hours * 3600)) / 60;
-    snprintf(e_buffer, e_buff_size, "%dh%dm", e_hours, e_minutes);
-  } else if (e_seconds < 8640000) { // < 100 days, XXdXXh
-    int e_days = e_seconds / 86400;
-    int e_hours = (e_seconds - (e_days * 86400)) / 3600;
-    snprintf(e_buffer, e_buff_size, "%dd%dh", e_days, e_hours);
-  } else { //>99 days
+  
+  int days = e_seconds / 86400;
+  int seconds = e_seconds % 86400;
+  int hours = seconds / 3600;
+  seconds = seconds % 3600;
+  int minutes = seconds / 60;
+  seconds = seconds % 60;
+  
+  if (days > 99) { //>99 days
     snprintf(e_buffer, e_buff_size, ">99d");
+    return;
+  }
+  
+  if (days >= 2 && days <= 99){ // < 99 days, XXdXXh
+    snprintf(e_buffer, e_buff_size, "%dd%02dh", days, hours);
+  } else if (hours > 0) { // < 48 hours, XXhXXm
+    snprintf(e_buffer, e_buff_size, "%dh%02dm", hours, minutes);
+  } else if (minutes > 0) { // < 1 hours, XXmXXs
+    snprintf(e_buffer, e_buff_size, "%dm%02ds", minutes, seconds);
+  } else { // < 1 minute, XXs    
+    snprintf(e_buffer, e_buff_size, "%ds", e_seconds);
   }
 }
 
@@ -178,92 +156,41 @@ static void prv_set_batt_data_text(int percent, int rate, bool charging){
   static char eta_buffer[10];
   int eta;
   if (charging){
-    eta = (100 - percent) * batt_data.seconds_per_percent_charging;
-    prv_format_seconds_elapsed(batt_data.seconds_per_percent_charging, avg_rate_buffer, sizeof(avg_rate_buffer));
+    eta = battman.time_at_full - time(NULL);
+    APP_LOG (APP_LOG_LEVEL_INFO,"Time at Full: %d", battman.time_at_full);
+    prv_format_seconds_elapsed(battman.charge_rate, avg_rate_buffer, sizeof(avg_rate_buffer));
+    APP_LOG (APP_LOG_LEVEL_INFO,"Charge Rate: %d", battman.charge_rate);
   } else {
-    eta = percent * batt_data.seconds_per_percent_discharging;
-    prv_format_seconds_elapsed(batt_data.seconds_per_percent_discharging, avg_rate_buffer, sizeof(avg_rate_buffer));
+    eta = battman.time_at_empty - time(NULL);
+    APP_LOG (APP_LOG_LEVEL_INFO,"Time at Empty: &d", battman.time_at_full);
+    prv_format_seconds_elapsed(0-battman.discharge_rate, avg_rate_buffer, sizeof(avg_rate_buffer));
+    APP_LOG (APP_LOG_LEVEL_INFO,"Discharge Rate: %d", 0-battman.discharge_rate);
   }
   
   prv_format_seconds_elapsed(eta, eta_buffer, sizeof(eta_buffer));
   
-  if (rate < 0){ // waiting for samples. App just started, or charging status just changed
-    if (charging){
-      snprintf(batt_data_buffer, sizeof(batt_data_buffer), "%d%%, full in %s\n%s/1%% chrg", percent, eta_buffer, avg_rate_buffer);
-    } else {
-      snprintf(batt_data_buffer, sizeof(batt_data_buffer), "%d%%, %s left\n%s/1%% drop", percent, eta_buffer, avg_rate_buffer);
-    }
+  prv_format_seconds_elapsed(rate, rate_buffer, sizeof(rate_buffer));
+  
+  if (charging){
+    snprintf(batt_data_buffer, sizeof(batt_data_buffer), "%d%%, full in %s.\n%s/1%% chrg", percent, eta_buffer, rate_buffer);
   } else {
-    prv_format_seconds_elapsed(rate, rate_buffer, sizeof(rate_buffer));
-    if (charging){
-      snprintf(batt_data_buffer, sizeof(batt_data_buffer), "%d%%, full in %s\n%s/1%% chrg", percent, eta_buffer, rate_buffer);
-    } else {
-      snprintf(batt_data_buffer, sizeof(batt_data_buffer), "%d%%, %s left\n%s/1%% drop", percent, eta_buffer, rate_buffer);
-    }
+    snprintf(batt_data_buffer, sizeof(batt_data_buffer), "%d%%, %s left.\n%s/1%% drop", percent, eta_buffer, rate_buffer);
   }
   
   text_layer_set_text(s_batt_data_layer, batt_data_buffer);
 }
 
+
 static void battery_callback(BatteryChargeState state) {
+  //do the battman callback within the main battery callback
+  battman.callback(state);
+  
   s_battery_level = state.charge_percent;
   s_charging = state.is_charging;
   layer_mark_dirty(s_battery_layer); 
   
-  //do calculations
-  
-  if (sample_percent == -2){ //initial call when app is opened
-    sample_percent = -1;
-    prv_set_batt_data_text(state.charge_percent, -2, state.is_charging);
-    return;
-  }
-  if (sample_percent == -1){ //first valid battery state change call
-    sample_percent = state.charge_percent;
-    sample_charging = state.is_charging;
-    time(&sample_time);
-    prv_set_batt_data_text(state.charge_percent, -1, state.is_charging);
-    return;
-  }
-  
-  if (sample_charging == state.is_charging){ // only do calculations if the charging status has not changed
-    if ((sample_charging == true) && (sample_percent < state.charge_percent)){ // charging for two samples and percent increasing, calculate charge rate
-      int deltaPercent = state.charge_percent - sample_percent;
-      int deltaTime = time(NULL) - sample_time;
-      int chargeRate = deltaTime / deltaPercent;
-      if (deltaPercent > 5) { // for bigger gaps in charge percentage (10% is typical), take 62.5% of the running average, and 37.5% of the new rate
-        batt_data.seconds_per_percent_charging = (10*batt_data.seconds_per_percent_charging + 6*chargeRate) / 16;
-      } else { // for smaller gaps in charge percentage (1% is typical on emery and gabbro) take 93.75% of the running, and 6.25% of the new rate
-        batt_data.seconds_per_percent_charging = (15*batt_data.seconds_per_percent_charging + 1*chargeRate) / 16;
-      }
-      prv_save_batt_data();
-      prv_set_batt_data_text(state.charge_percent, chargeRate, state.is_charging);
-    } else if ((sample_charging == false) && (sample_percent > state.charge_percent)){ // discharging for two samples and percent decreasing, caluclate discharge rate
-      int deltaPercent = sample_percent - state.charge_percent;
-      int deltaTime = time(NULL) - sample_time;
-      int dischargeRate = deltaTime / deltaPercent;
-      if (deltaPercent > 5) { // for bigger gaps in charge percentage (10% is typical), take 62.5% of the running average, and 37.5% of the new rate
-        batt_data.seconds_per_percent_discharging = (10*batt_data.seconds_per_percent_discharging + 6*dischargeRate) / 16;
-      } else { // for smaller gaps in charge percentage (1% is typical on emery and gabbro) take 93.75% of the running, and 6.25% of the new rate
-        batt_data.seconds_per_percent_discharging = (15*batt_data.seconds_per_percent_discharging + 1*dischargeRate) / 16;
-      }
-      prv_save_batt_data();
-      prv_set_batt_data_text(state.charge_percent, dischargeRate, state.is_charging);
-    } else { 
-      //percent change is inconsistent with charging status, do not calculate a rate;
-      prv_set_batt_data_text(state.charge_percent, -1, state.is_charging);
-    }
-    // if the charging status has not chaged and the percentage has, save the current sample
-    if (sample_percent != state.charge_percent) {
-      sample_percent = state.charge_percent;
-      sample_charging = state.is_charging;
-      time(&sample_time);
-    }
-  } else { // the charging status has changed, wait for two new samples
-    sample_percent = -2;
-    prv_set_batt_data_text(state.charge_percent, -2, state.is_charging);
-  }
-  
-  
+  prv_set_batt_data_text(state.charge_percent, state.is_charging?battman.charge_rate:0-battman.discharge_rate, state.is_charging);
+
 }
 
 static void battery_update_proc(Layer *layer, GContext *ctx) {
@@ -538,7 +465,7 @@ static void main_window_load(Window *window) {
   text_layer_set_text_color(s_batt_data_layer, settings.TextColor);
   text_layer_set_font(s_batt_data_layer, s_info_font);
   text_layer_set_text_alignment(s_batt_data_layer, PBL_IF_RECT_ELSE (GTextAlignmentRight, GTextAlignmentCenter));
-  text_layer_set_text(s_batt_data_layer, "Battery Data");
+  text_layer_set_text(s_batt_data_layer, "Collecting Battery Data");
 
   // Create battery meter Layer — visible bar near the top
   int bar_width = 34;
@@ -596,9 +523,8 @@ static void init() {
   // Load settings before creating UI
   prv_load_settings();
   
-  // Load battery rate data
-  prv_load_batt_data();
-
+  battman.init();
+  
   s_main_window = window_create();
   window_set_background_color(s_main_window, settings.BackgroundColor);
   window_set_window_handlers(s_main_window, (WindowHandlers) {
@@ -610,11 +536,6 @@ static void init() {
   update_time();
 
   tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
-  
-  // Reset battery sampling data
-  sample_percent = -2; // need 2 samples (one on app load, and one at a percentage boundary) to set inital sample
-  sample_charging = false;
-  sample_time = 0;
   
   battery_state_service_subscribe(battery_callback);
   battery_callback(battery_state_service_peek());
@@ -636,6 +557,8 @@ static void init() {
 }
 
 static void deinit() {
+  battman.deinit();
+  
   window_destroy(s_main_window);
 }
 
