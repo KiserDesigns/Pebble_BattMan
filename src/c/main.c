@@ -1,6 +1,5 @@
 #include <pebble.h>
 #include <battman/battman.h>
-extern BattManStruct battman;
 
 // Persistent storage key
 #define SETTINGS_KEY 1
@@ -162,7 +161,7 @@ static void prv_set_batt_data_text(int percent, int rate, bool charging){
     APP_LOG (APP_LOG_LEVEL_INFO,"Charge Rate: %d", battman.charge_rate);
   } else {
     eta = battman.time_at_empty - time(NULL);
-    APP_LOG (APP_LOG_LEVEL_INFO,"Time at Empty: &d", battman.time_at_full);
+    APP_LOG (APP_LOG_LEVEL_INFO,"Time at Empty: %d", battman.time_at_empty);
     prv_format_seconds_elapsed(0-battman.discharge_rate, avg_rate_buffer, sizeof(avg_rate_buffer));
     APP_LOG (APP_LOG_LEVEL_INFO,"Discharge Rate: %d", 0-battman.discharge_rate);
   }
