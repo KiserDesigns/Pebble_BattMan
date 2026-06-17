@@ -2,8 +2,7 @@
 #include <battman/battman.h>
 
 // Persistent storage key
-#define SETTINGS_KEY 1
-#define BATT_DATA_KEY 2
+#define SETTINGS_KEY 2
 
 // Define our settings struct
 typedef struct ClaySettings {
@@ -19,7 +18,7 @@ static ClaySettings settings;
 static Window *s_main_window;
 static TextLayer *s_time_layer;
 static TextLayer *s_date_layer;
-static TextLayer *s_weather_layer;
+//static TextLayer *s_weather_layer;
 static TextLayer *s_batt_data_layer;
 
 // Custom fonts
@@ -32,10 +31,6 @@ static Layer *s_battery_layer;
 static int s_battery_level;
 static bool s_charging;
 
-// Bluetooth
-static BitmapLayer *s_bt_icon_layer;
-static GBitmap *s_bt_icon_bitmap;
-
 // Unobstructed area
 static Layer *s_window_layer;
 
@@ -43,7 +38,6 @@ static Layer *s_window_layer;
 static void prv_default_settings() {
   settings.BackgroundColor = GColorBlack;
   settings.TextColor = GColorWhite;
-  settings.TemperatureUnit = false; // Celsius
   settings.ShowDate = true;
 }
 
@@ -69,7 +63,6 @@ static void prv_update_display() {
   // Set text colors
   text_layer_set_text_color(s_time_layer, settings.TextColor);
   text_layer_set_text_color(s_date_layer, settings.TextColor);
-  text_layer_set_text_color(s_weather_layer, settings.TextColor);
   text_layer_set_text_color(s_batt_data_layer, settings.TextColor);
 
   // Show/hide date based on setting
@@ -97,14 +90,6 @@ static void update_time() {
 
 static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   update_time();
-
-  // Get weather update every 30 minutes
-  if (tick_time->tm_min % 30 == 0) {
-    DictionaryIterator *iter;
-    app_message_outbox_begin(&iter);
-    dict_write_uint8(iter, MESSAGE_KEY_REQUEST_WEATHER, 1);
-    app_message_outbox_send();
-  }
 }
 
 static void prv_format_seconds_elapsed(int e_seconds, char* e_buffer, int e_buff_size){
@@ -145,7 +130,7 @@ static void prv_set_batt_data_text(int percent, int rate, bool charging){
   // XXX%, full in XXdXXh
   // XXX%, XXhXXm remaining
   // XXX%, XXdXXh left
-  static char batt_data_buffer[42];
+  static char batt_data_buffer[64];
   // XXdXXh
   // XXhXXm
   // XXmXXs
@@ -153,6 +138,7 @@ static void prv_set_batt_data_text(int percent, int rate, bool charging){
   static char avg_rate_buffer[10];
   static char rate_buffer[10];
   static char eta_buffer[10];
+  static char last_buffer[10];
   int eta;
   if (charging){
     eta = battman.time_at_full - time(NULL);
@@ -170,12 +156,13 @@ static void prv_set_batt_data_text(int percent, int rate, bool charging){
   
   prv_format_seconds_elapsed(rate, rate_buffer, sizeof(rate_buffer));
   
-  if (charging){
-    snprintf(batt_data_buffer, sizeof(batt_data_buffer), "%d%%, full in %s.\n%s/1%% chrg", percent, eta_buffer, rate_buffer);
-  } else {
-    snprintf(batt_data_buffer, sizeof(batt_data_buffer), "%d%%, %s left.\n%s/1%% drop", percent, eta_buffer, rate_buffer);
-  }
+  prv_format_seconds_elapsed(time(NULL)-(battman.data[BATTMAN_NUM_SAMPLES-1] & 0xFFFFFF80), last_buffer, sizeof(last_buffer));
   
+  if (charging){
+    snprintf(batt_data_buffer, sizeof(batt_data_buffer), "%d%%, full in %s.\n%s/1%% chrg\n(%d%% %s ago)", percent, eta_buffer, rate_buffer, (int)battman.data[BATTMAN_NUM_SAMPLES-1] & 0x0000007F, last_buffer);
+  } else {
+    snprintf(batt_data_buffer, sizeof(batt_data_buffer), "%d%%, %s left.\n%s/1%% drop\n(%d%% %s ago)", percent, eta_buffer, rate_buffer, (int)battman.data[BATTMAN_NUM_SAMPLES-1] & 0x0000007F, last_buffer);
+  }
   text_layer_set_text(s_batt_data_layer, batt_data_buffer);
 }
 
@@ -238,9 +225,6 @@ static void battery_update_proc(Layer *layer, GContext *ctx) {
 }
 
 static void bluetooth_callback(bool connected) {
-  // Show icon if disconnected
-  //layer_set_hidden(bitmap_layer_get_layer(s_bt_icon_layer), connected);
-
   //if (!connected) {
   //  vibes_double_pulse();
   //}
@@ -248,30 +232,6 @@ static void bluetooth_callback(bool connected) {
 
 // AppMessage received handler
 static void inbox_received_callback(DictionaryIterator *iterator, void *context) {
-  // Check for weather data
-  Tuple *temp_tuple = dict_find(iterator, MESSAGE_KEY_TEMPERATURE);
-  Tuple *conditions_tuple = dict_find(iterator, MESSAGE_KEY_CONDITIONS);
-
-  if (temp_tuple && conditions_tuple) {
-    static char temperature_buffer[8];
-    static char conditions_buffer[32];
-    static char weather_layer_buffer[42];
-
-    int temp_value = (int)temp_tuple->value->int32;
-
-    // Convert to Fahrenheit if setting is enabled
-    if (settings.TemperatureUnit) {
-      temp_value = (temp_value * 9 / 5) + 32;
-      snprintf(temperature_buffer, sizeof(temperature_buffer), "%d°F", temp_value);
-    } else {
-      snprintf(temperature_buffer, sizeof(temperature_buffer), "%d°C", temp_value);
-    }
-
-    snprintf(conditions_buffer, sizeof(conditions_buffer), "%s", conditions_tuple->value->cstring);
-    snprintf(weather_layer_buffer, sizeof(weather_layer_buffer), "%s %s", temperature_buffer, conditions_buffer);
-    text_layer_set_text(s_weather_layer, weather_layer_buffer);
-  }
-
   // Check for Clay settings data
   Tuple *bg_color_t = dict_find(iterator, MESSAGE_KEY_BackgroundColor);
   if (bg_color_t) {
@@ -279,24 +239,11 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
     #ifdef PBL_BW
     settings.TextColor = gcolor_equal(GColorBlack, settings.BackgroundColor) ? GColorWhite : GColorBlack;
     #endif
-    
-    //#ifdef PBL_COLOR
-    //if(bg_color_t->value->int32 > 0x888888) { //bright background of 0xFF or 0xAA for each color, subtract 0xAAAAAA to make it 0x55 or 0x00
-    //  settings.TextColor = GColorFromHEX(bg_color_t->value->int32 - 0xAAAAAA);
-    //} else { //dark background of 0x55 or 0x00 for each color, add 0xAAAAAA to make it 0xFF or 0xAA
-    //  settings.TextColor = GColorFromHEX(bg_color_t->value->int32 + 0xAAAAAA);
-    //}
-    //#endif
   }
 
   Tuple *text_color_t = dict_find(iterator, MESSAGE_KEY_TextColor);
   if (text_color_t) {
     settings.TextColor = GColorFromHEX(text_color_t->value->int32);
-  }
-
-  Tuple *temp_unit_t = dict_find(iterator, MESSAGE_KEY_TemperatureUnit);
-  if (temp_unit_t) {
-    settings.TemperatureUnit = temp_unit_t->value->int32 == 1;
   }
 
   Tuple *show_date_t = dict_find(iterator, MESSAGE_KEY_ShowDate);
@@ -305,17 +252,9 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
   }
 
   // Save and apply if any settings were changed
-  if (bg_color_t || text_color_t || temp_unit_t || show_date_t) {
+  if (bg_color_t || text_color_t || show_date_t) {
     prv_save_settings();
     prv_update_display();
-
-    // Refetch weather if the temperature unit changed so the display updates
-    if (temp_unit_t) {
-      DictionaryIterator *iter;
-      app_message_outbox_begin(&iter);
-      dict_write_uint8(iter, MESSAGE_KEY_REQUEST_WEATHER, 1);
-      app_message_outbox_send();
-    }
   }
 }
 
@@ -333,22 +272,16 @@ static void outbox_sent_callback(DictionaryIterator *iterator, void *context) {
 
 // Unobstructed area handlers
 static void prv_unobstructed_will_change(GRect final_unobstructed_screen_area, void *context) {
-  // Hide weather during the transition to reduce clutter
-  //layer_set_hidden(text_layer_get_layer(s_weather_layer), true);
+  // Hide things that may be obscured in the near future
 }
 
 static void prv_unobstructed_change(AnimationProgress progress, void *context) {
   GRect bounds = layer_get_unobstructed_bounds(s_window_layer);
   bounds = layer_get_bounds(s_window_layer);
-  // Reposition time, date, and weather to fit in the available space
-  //int date_height = 30;
-  //int block_height = 56 + date_height;
-  //int time_y = (bounds.size.h / 2) - (block_height / 2) - 10;
-  //int date_y = time_y + 56;
-  int weather_y = bounds.size.h - 40;
-  #ifdef PBL_PLATFORM_GABBRO
-  weather_y = bounds.size.h - 55;
-  #endif
+  
+  int y = bounds.size.h;
+  
+  //move things around if you need to
 
   GRect time_frame = layer_get_frame(text_layer_get_layer(s_time_layer));
 //  time_frame.origin.y = time_y;
@@ -357,10 +290,6 @@ static void prv_unobstructed_change(AnimationProgress progress, void *context) {
   GRect date_frame = layer_get_frame(text_layer_get_layer(s_date_layer));
 //  date_frame.origin.y = date_y;
   layer_set_frame(text_layer_get_layer(s_date_layer), date_frame);
-
-  GRect weather_frame = layer_get_frame(text_layer_get_layer(s_weather_layer));
-  weather_frame.origin.y = weather_y;
-  layer_set_frame(text_layer_get_layer(s_weather_layer), weather_frame);
 }
 
 static void prv_unobstructed_did_change(void *context) {
@@ -368,15 +297,7 @@ static void prv_unobstructed_did_change(void *context) {
   GRect bounds = layer_get_unobstructed_bounds(s_window_layer);
   bool obstructed = !grect_equal(&full_bounds, &bounds);
   
-  //layer_set_hidden(text_layer_get_layer(s_weather_layer), obstructed);
-  
-  // Keep BT icon hidden when obstructed, otherwise restore based on connection
-  //if (obstructed) {
-  //  layer_set_hidden(bitmap_layer_get_layer(s_bt_icon_layer), true);
-  //} else {
-  //  layer_set_hidden(bitmap_layer_get_layer(s_bt_icon_layer),
-  //    connection_service_peek_pebble_app_connection());
-  //}
+  // unhide things if they were hidden and obstructed is false
 }
 
 static void main_window_load(Window *window) {
@@ -393,7 +314,6 @@ static void main_window_load(Window *window) {
   int date_y = time_y + 54;
   int batt_y = date_y + 34;
   int bar_y = 65;
-  int weather_y = bounds.size.h - 40;
   
   #elif PBL_PLATFORM_CHALK
   // Load custom fonts
@@ -405,7 +325,6 @@ static void main_window_load(Window *window) {
   int date_y = 30;
   int batt_y = 95;
   int bar_y = 10;
-  int weather_y = bounds.size.h - 40;
   
   #elif PBL_PLATFORM_GABBRO
   // Load custom fonts
@@ -417,7 +336,6 @@ static void main_window_load(Window *window) {
   int date_y = 42;
   int batt_y = 130;
   int bar_y = 20;
-  int weather_y = bounds.size.h - 55;
   
   #else
   // Load custom fonts
@@ -429,7 +347,6 @@ static void main_window_load(Window *window) {
   int date_y = time_y + 44;
   int batt_y = date_y + 24;
   int bar_y = 50;
-  int weather_y = bounds.size.h - 40;
   #endif
 
   // Create the time TextLayer
@@ -447,19 +364,10 @@ static void main_window_load(Window *window) {
   text_layer_set_text_color(s_date_layer, settings.TextColor);
   text_layer_set_font(s_date_layer, s_date_font);
   text_layer_set_text_alignment(s_date_layer, PBL_IF_RECT_ELSE (GTextAlignmentLeft, GTextAlignmentCenter));
-
-  // Create weather TextLayer — aligned to the bottom of the screen
-  s_weather_layer = text_layer_create(
-      GRect(date_time_padding, weather_y, bounds.size.w - (2*date_time_padding), 30));
-  text_layer_set_background_color(s_weather_layer, GColorClear);
-  text_layer_set_text_color(s_weather_layer, settings.TextColor);
-  text_layer_set_font(s_weather_layer, s_info_font);
-  text_layer_set_text_alignment(s_weather_layer, PBL_IF_RECT_ELSE (GTextAlignmentLeft, GTextAlignmentCenter));
-  text_layer_set_text(s_weather_layer, "Loading...");
   
   // Create battery data TextLayer — just below the date
   s_batt_data_layer = text_layer_create(
-      GRect(date_time_padding, batt_y, bounds.size.w - (2*date_time_padding), 70));
+      GRect(date_time_padding, batt_y, bounds.size.w - (2*date_time_padding), 100));
   text_layer_set_background_color(s_batt_data_layer, GColorClear);
   text_layer_set_text_color(s_batt_data_layer, settings.TextColor);
   text_layer_set_font(s_batt_data_layer, s_info_font);
@@ -468,27 +376,18 @@ static void main_window_load(Window *window) {
 
   // Create battery meter Layer — visible bar near the top
   int bar_width = 34;
-  int bar_x = (bounds.size.w - bar_width - date_time_padding);
+  int bar_x = (bounds.size.w - bar_width - date_time_padding); //this right-aligns the battery bar
   #ifndef PBL_RECT
-  bar_x = (bounds.size.w - bar_width) / 2;
+  bar_x = (bounds.size.w - bar_width) / 2; //this centers the battery bar
   #endif
   s_battery_layer = layer_create(GRect(bar_x, bar_y, bar_width, 12));
   layer_set_update_proc(s_battery_layer, battery_update_proc);
 
-  // Create the Bluetooth icon GBitmap
-  //s_bt_icon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_BT_ICON);
-  //int bt_y = bar_y + 12;
-  //s_bt_icon_layer = bitmap_layer_create(GRect((bounds.size.w - 30) / 2, bt_y, 30, 30));
-  //bitmap_layer_set_bitmap(s_bt_icon_layer, s_bt_icon_bitmap);
-  //bitmap_layer_set_compositing_mode(s_bt_icon_layer, GCompOpSet);
-
   // Add layers to the Window
   layer_add_child(s_window_layer, text_layer_get_layer(s_time_layer));
   layer_add_child(s_window_layer, text_layer_get_layer(s_date_layer));
-  layer_add_child(s_window_layer, text_layer_get_layer(s_weather_layer));
   layer_add_child(s_window_layer, text_layer_get_layer(s_batt_data_layer));
   layer_add_child(s_window_layer, s_battery_layer);
-  //layer_add_child(s_window_layer, bitmap_layer_get_layer(s_bt_icon_layer));
 
   // Apply saved settings
   prv_update_display();
@@ -509,13 +408,10 @@ static void main_window_load(Window *window) {
 static void main_window_unload(Window *window) {
   text_layer_destroy(s_time_layer);
   text_layer_destroy(s_date_layer);
-  text_layer_destroy(s_weather_layer);
   text_layer_destroy(s_batt_data_layer);
   //fonts_unload_custom_font(s_time_font);
   //fonts_unload_custom_font(s_date_font);
   layer_destroy(s_battery_layer);
-  //gbitmap_destroy(s_bt_icon_bitmap);
-  //bitmap_layer_destroy(s_bt_icon_layer);
 }
 
 static void init() {

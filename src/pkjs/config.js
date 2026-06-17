@@ -1,11 +1,11 @@
 module.exports = [
   {
     "type": "heading",
-    "defaultValue": "Watchface Settings"
+    "defaultValue": "BattMan Settings"
   },
   {
     "type": "text",
-    "defaultValue": "Customize your watchface appearance and preferences."
+    "defaultValue": "Set Colors and Preferences."
   },
   {
     "type": "section",
@@ -48,12 +48,6 @@ module.exports = [
       {
         "type": "heading",
         "defaultValue": "Preferences"
-      },
-      {
-        "type": "toggle",
-        "messageKey": "TemperatureUnit",
-        "label": "Use Fahrenheit",
-        "defaultValue": false
       },
       {
         "type": "toggle",
