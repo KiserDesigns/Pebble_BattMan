@@ -31,6 +31,9 @@ static Layer *s_battery_layer;
 static int s_battery_level;
 static bool s_charging;
 
+// Battery Stats Graph
+static Layer *s_stats_layer;
+
 // Unobstructed area
 static Layer *s_window_layer;
 
@@ -70,6 +73,7 @@ static void prv_update_display() {
 
   // Mark battery layer for redraw (color may have changed)
   layer_mark_dirty(s_battery_layer);
+  layer_mark_dirty(s_stats_layer);
 }
 
 static void update_time() {
@@ -114,9 +118,9 @@ static void prv_format_seconds_elapsed(int e_seconds, char* e_buffer, int e_buff
     return;
   }
   
-  if (days >= 2 && days <= 99){ // < 99 days, XXdXXh
+  if (days > 0 && days <= 99){ // < 99 days, XXdXXh
     snprintf(e_buffer, e_buff_size, "%dd%02dh", days, hours);
-  } else if (hours > 0) { // < 48 hours, XXhXXm
+  } else if (hours > 0) { // < 24 hours, XXhXXm
     snprintf(e_buffer, e_buff_size, "%dh%02dm", hours, minutes);
   } else if (minutes > 0) { // < 1 hours, XXmXXs
     snprintf(e_buffer, e_buff_size, "%dm%02ds", minutes, seconds);
@@ -177,6 +181,12 @@ static void battery_callback(BatteryChargeState state) {
   
   prv_set_batt_data_text(state.charge_percent, state.is_charging?battman.charge_rate:0-battman.discharge_rate, state.is_charging);
 
+}
+
+static void stats_update_proc(Layer *layer, GContext *ctx) {
+  GRect bounds = layer_get_bounds(layer);
+  graphics_context_set_stroke_color(ctx, settings.TextColor);
+  graphics_draw_round_rect(ctx, GRect(0,0,bounds.size.w, bounds.size.h), 4);
 }
 
 static void battery_update_proc(Layer *layer, GContext *ctx) {
@@ -382,12 +392,19 @@ static void main_window_load(Window *window) {
   #endif
   s_battery_layer = layer_create(GRect(bar_x, bar_y, bar_width, 12));
   layer_set_update_proc(s_battery_layer, battery_update_proc);
+  
+  // Create the battery stats Layer
+  int stats_width = bounds.size.w - (2*date_time_padding);
+  int stats_height = stats_width / 2;
+  s_stats_layer = layer_create(GRect(date_time_padding, bounds.size.h - stats_height - date_time_padding, stats_width, stats_height));
+  layer_set_update_proc(s_stats_layer, stats_update_proc);
 
   // Add layers to the Window
   layer_add_child(s_window_layer, text_layer_get_layer(s_time_layer));
   layer_add_child(s_window_layer, text_layer_get_layer(s_date_layer));
   layer_add_child(s_window_layer, text_layer_get_layer(s_batt_data_layer));
   layer_add_child(s_window_layer, s_battery_layer);
+  layer_add_child(s_window_layer, s_stats_layer);
 
   // Apply saved settings
   prv_update_display();
@@ -412,6 +429,7 @@ static void main_window_unload(Window *window) {
   //fonts_unload_custom_font(s_time_font);
   //fonts_unload_custom_font(s_date_font);
   layer_destroy(s_battery_layer);
+  layer_destroy(s_stats_layer);
 }
 
 static void init() {
