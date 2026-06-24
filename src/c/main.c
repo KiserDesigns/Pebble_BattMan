@@ -41,7 +41,7 @@ static Layer *s_window_layer;
 static void prv_default_settings() {
   settings.BackgroundColor = GColorBlack;
   settings.TextColor = GColorWhite;
-  settings.ShowDate = true;
+  settings.ShowDate = true; //No longer used.
 }
 
 
@@ -69,7 +69,8 @@ static void prv_update_display() {
   text_layer_set_text_color(s_batt_data_layer, settings.TextColor);
 
   // Show/hide date based on setting
-  layer_set_hidden(text_layer_get_layer(s_date_layer), !settings.ShowDate);
+  //FORCE THIS TO BE SHOWN, this is a design choice
+  // layer_set_hidden(text_layer_get_layer(s_date_layer), !settings.ShowDate);
 
   // Mark battery layer for redraw (color may have changed)
   layer_mark_dirty(s_battery_layer);
@@ -90,10 +91,6 @@ static void update_time() {
   text_layer_set_text(s_date_layer, s_date_buffer);
   
   battman.process();
-}
-
-static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
-  update_time();
 }
 
 static void prv_format_seconds_elapsed(int e_seconds, char* e_buffer, int e_buff_size){
@@ -129,7 +126,10 @@ static void prv_format_seconds_elapsed(int e_seconds, char* e_buffer, int e_buff
   }
 }
 
-static void prv_set_batt_data_text(int percent, int rate, bool charging){
+static void prv_set_batt_data_text(BatteryChargeState state) {
+  
+  int percent = state.charge_percent;
+  bool charging = state.is_charging;
   
   // XXX%, full in XXdXXh
   // XXX%, XXhXXm remaining
@@ -140,9 +140,9 @@ static void prv_set_batt_data_text(int percent, int rate, bool charging){
   // XXmXXs
   // XXs
   static char avg_rate_buffer[10];
-  static char rate_buffer[10];
+  //static char rate_buffer[10];
   static char eta_buffer[10];
-  static char last_buffer[10];
+  //static char last_buffer[10];
   int eta;
   if (charging){
     eta = battman.time_at_full - time(NULL);
@@ -158,14 +158,18 @@ static void prv_set_batt_data_text(int percent, int rate, bool charging){
   
   prv_format_seconds_elapsed(eta, eta_buffer, sizeof(eta_buffer));
   
-  prv_format_seconds_elapsed(rate, rate_buffer, sizeof(rate_buffer));
+  //prv_format_seconds_elapsed(rate, rate_buffer, sizeof(rate_buffer));
   
-  prv_format_seconds_elapsed(time(NULL)-(battman.data[BATTMAN_NUM_SAMPLES-1] & 0xFFFFFF80), last_buffer, sizeof(last_buffer));
+  //prv_format_seconds_elapsed(time(NULL)-(battman.data[BATTMAN_NUM_SAMPLES-1] & 0xFFFFFF80), last_buffer, sizeof(last_buffer));
+  
+  // //(int)battman.data[BATTMAN_NUM_SAMPLES-1] & 0x0000007F
   
   if (charging){
-    snprintf(batt_data_buffer, sizeof(batt_data_buffer), "%d%%, full in %s.\n%s/1%% chrg\n(%d%% %s ago)", percent, eta_buffer, rate_buffer, (int)battman.data[BATTMAN_NUM_SAMPLES-1] & 0x0000007F, last_buffer);
+    //snprintf(batt_data_buffer, sizeof(batt_data_buffer), "%d%%, full in %s.\n%s/1%% chrg\n(%d%% %s ago)", percent, eta_buffer, rate_buffer, (int)battman.data[BATTMAN_NUM_SAMPLES-1] & 0x0000007F, last_buffer);
+    snprintf(batt_data_buffer, sizeof(batt_data_buffer), "%d%%, full in %s", percent, eta_buffer);
   } else {
-    snprintf(batt_data_buffer, sizeof(batt_data_buffer), "%d%%, %s left.\n%s/1%% drop\n(%d%% %s ago)", percent, eta_buffer, rate_buffer, (int)battman.data[BATTMAN_NUM_SAMPLES-1] & 0x0000007F, last_buffer);
+    //snprintf(batt_data_buffer, sizeof(batt_data_buffer), "%d%%, %s left.\n%s/1%% drop\n(%d%% %s ago)", percent, eta_buffer, rate_buffer, (int)battman.data[BATTMAN_NUM_SAMPLES-1] & 0x0000007F, last_buffer);
+    snprintf(batt_data_buffer, sizeof(batt_data_buffer), "%d%%, %s left", percent, eta_buffer);
   }
   text_layer_set_text(s_batt_data_layer, batt_data_buffer);
 }
@@ -174,19 +178,94 @@ static void prv_set_batt_data_text(int percent, int rate, bool charging){
 static void battery_callback(BatteryChargeState state) {
   //do the battman callback within the main battery callback
   battman.callback(state);
-  
+  APP_LOG (APP_LOG_LEVEL_INFO ,"BATTERY CALLBACK");
   s_battery_level = state.charge_percent;
   s_charging = state.is_charging;
-  layer_mark_dirty(s_battery_layer); 
+  layer_mark_dirty(s_battery_layer);
+  layer_mark_dirty(s_stats_layer); 
   
-  prv_set_batt_data_text(state.charge_percent, state.is_charging?battman.charge_rate:0-battman.discharge_rate, state.is_charging);
+  prv_set_batt_data_text(state);
 
+}
+
+static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
+  update_time();
+  prv_set_batt_data_text(battery_state_service_peek());
 }
 
 static void stats_update_proc(Layer *layer, GContext *ctx) {
   GRect bounds = layer_get_bounds(layer);
   graphics_context_set_stroke_color(ctx, settings.TextColor);
-  graphics_draw_round_rect(ctx, GRect(0,0,bounds.size.w, bounds.size.h), 4);
+  graphics_draw_round_rect(ctx, GRect(0,0,bounds.size.w, bounds.size.h), 0);
+  
+  time_t max_t = battman.time_at_empty;
+  time_t min_t = 0;
+  
+  APP_LOG (APP_LOG_LEVEL_INFO,"Updating Stats");
+  
+  int i;
+  int recent_peak_index = -1;
+  // iterate through the samples backwards to find the first rising edge. the right side of that edge will be the most recent peak
+  for (i = BATTMAN_NUM_SAMPLES - 1; i > 1; i--){
+    if((battman.data[i]&battman.percent_mask) > (battman.data[i-1]&battman.percent_mask)){
+      recent_peak_index = i;
+      //APP_LOG (APP_LOG_LEVEL_INFO,"Found Peak at Index: %d", recent_peak_index);
+      i = -1; //exit loop
+    }
+  }
+  if (recent_peak_index == -1){
+    // no rising edge found? This shouldn't be possible (unless there are no samples??)
+    // so don't do anything else.
+    //APP_LOG (APP_LOG_LEVEL_INFO,"No recent peak found");
+  } else {
+    graphics_context_set_stroke_width(ctx, 1);
+    min_t = battman.data[recent_peak_index]&battman.time_mask;
+    int dT = max_t - min_t; //this is the time "width" of the window, from the start of the most recent peak to the time when the battery should be dead
+    //iterate through to find the first non-zero sample to base the first time on:
+    min_t = 0;
+    //iterate through the samples drawing lines connecting samples, and whenever a rising edge is found, start again
+    for (i = 0; i < BATTMAN_NUM_SAMPLES - 1; i++) {
+      uint32_t curr = battman.data[i];
+      uint32_t next = battman.data[i+1];
+      if(curr!=0 && min_t == 0){
+        min_t = curr&battman.time_mask;
+        //APP_LOG (APP_LOG_LEVEL_INFO,"Start drawing at t=%ul", min_t);
+      }
+      if (i == recent_peak_index){ //it's the start of the most recent discharge, make this one big
+        graphics_context_set_stroke_width(ctx, 3);
+      }
+      if (curr!=0 && next!=0){
+        if ((curr&battman.percent_mask) < (next&battman.percent_mask)){
+          //this is a rising edge, start over
+          min_t = next&battman.time_mask;
+          //APP_LOG (APP_LOG_LEVEL_INFO,"Start again at t=%ul", min_t);
+        } else {
+          //this is a falling edge or flat line, draw it
+          int y1 = bounds.size.h * (curr&battman.percent_mask) / 100;
+          int y2 = bounds.size.h * (next&battman.percent_mask) / 100;
+          int x1 = bounds.size.w * ((curr&battman.time_mask) - min_t) / dT;
+          int x2 = bounds.size.w * ((next&battman.time_mask) - min_t) / dT;
+          graphics_draw_line(ctx, GPoint(x1, bounds.size.h - y1), GPoint(x2, bounds.size.h - y2));
+          //APP_LOG (APP_LOG_LEVEL_INFO,"Drawing curve at: (%d, %d) (%d, %d)", x1, bounds.size.h - y1, x2, bounds.size.h - y2);
+        }
+      } 
+    }
+    // draw the projected discharge line, starting from (time_at_empty, 0%), up the left with a slope equal to discharge_rate
+    // 3 pixels on, 2 pixels off, ending at the time of the last sample.
+    min_t = battman.data[recent_peak_index]&battman.time_mask;
+    //APP_LOG (APP_LOG_LEVEL_INFO,"Drawing projeceted line form end to %d", bounds.size.w * (int)((battman.data[BATTMAN_NUM_SAMPLES-1]&battman.time_mask) - min_t) / dT);
+    for(i = bounds.size.w; i > (bounds.size.w * (int)((battman.data[BATTMAN_NUM_SAMPLES-1]&battman.time_mask) - min_t) / dT); i--){
+      if(i%5 < 3){
+        //max_t just used as an integer to store the y value of the pixel to be drawn, since it was already allocated and won't be used for anything else
+        int seconds = (i - bounds.size.w) * dT / bounds.size.w;
+       // APP_LOG (APP_LOG_LEVEL_INFO,"Seconds: %d", seconds);
+        max_t = bounds.size.h * seconds / battman.discharge_rate / 100;
+        graphics_draw_pixel(ctx, GPoint(i,bounds.size.h - max_t));
+      //  APP_LOG (APP_LOG_LEVEL_INFO,"Drawing point at: (%d, %d)", i, bounds.size.h - max_t);
+      }
+    }
+  }
+  
 }
 
 static void battery_update_proc(Layer *layer, GContext *ctx) {
@@ -314,7 +393,7 @@ static void main_window_load(Window *window) {
   s_window_layer = window_get_root_layer(window);
   GRect bounds = layer_get_bounds(s_window_layer);
 
-  #ifdef PBL_PLATFORM_EMERY
+  #ifdef PBL_PLATFORM_EMERY //Big Rectangle
   // Load custom fonts
   s_time_font = fonts_get_system_font(FONT_KEY_ROBOTO_BOLD_SUBSET_49);
   s_date_font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
@@ -325,7 +404,7 @@ static void main_window_load(Window *window) {
   int batt_y = date_y + 34;
   int bar_y = 65;
   
-  #elif PBL_PLATFORM_CHALK
+  #elif PBL_PLATFORM_CHALK //Small Circle
   // Load custom fonts
   s_time_font = fonts_get_system_font(FONT_KEY_BITHAM_34_MEDIUM_NUMBERS);
   s_date_font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
@@ -336,7 +415,7 @@ static void main_window_load(Window *window) {
   int batt_y = 95;
   int bar_y = 10;
   
-  #elif PBL_PLATFORM_GABBRO
+  #elif PBL_PLATFORM_GABBRO //Big Circle
   // Load custom fonts
   s_time_font = fonts_get_system_font(FONT_KEY_ROBOTO_BOLD_SUBSET_49);
   s_date_font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
@@ -347,7 +426,7 @@ static void main_window_load(Window *window) {
   int batt_y = 130;
   int bar_y = 20;
   
-  #else
+  #else //It's a small rectange (OG or Time)
   // Load custom fonts
   s_time_font = fonts_get_system_font(FONT_KEY_BITHAM_34_MEDIUM_NUMBERS);
   s_date_font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
