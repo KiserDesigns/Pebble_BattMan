@@ -139,21 +139,21 @@ static void prv_set_batt_data_text(BatteryChargeState state) {
   // XXhXXm
   // XXmXXs
   // XXs
-  static char avg_rate_buffer[10];
+  //static char avg_rate_buffer[10];
   //static char rate_buffer[10];
   static char eta_buffer[10];
   //static char last_buffer[10];
   int eta;
   if (charging){
     eta = battman.time_at_full - time(NULL);
-    APP_LOG (APP_LOG_LEVEL_INFO,"Time at Full: %d", battman.time_at_full);
-    prv_format_seconds_elapsed(battman.charge_rate, avg_rate_buffer, sizeof(avg_rate_buffer));
-    APP_LOG (APP_LOG_LEVEL_INFO,"Charge Rate: %d", battman.charge_rate);
+    //APP_LOG (APP_LOG_LEVEL_INFO,"Time at Full: %d", battman.time_at_full);
+    //prv_format_seconds_elapsed(battman.charge_rate, avg_rate_buffer, sizeof(avg_rate_buffer));
+    //APP_LOG (APP_LOG_LEVEL_INFO,"Charge Rate: %d", battman.charge_rate);
   } else {
     eta = battman.time_at_empty - time(NULL);
-    APP_LOG (APP_LOG_LEVEL_INFO,"Time at Empty: %d", battman.time_at_empty);
-    prv_format_seconds_elapsed(0-battman.discharge_rate, avg_rate_buffer, sizeof(avg_rate_buffer));
-    APP_LOG (APP_LOG_LEVEL_INFO,"Discharge Rate: %d", 0-battman.discharge_rate);
+    //APP_LOG (APP_LOG_LEVEL_INFO,"Time at Empty: %d", battman.time_at_empty);
+    //prv_format_seconds_elapsed(0-battman.discharge_rate, avg_rate_buffer, sizeof(avg_rate_buffer));
+    //APP_LOG (APP_LOG_LEVEL_INFO,"Discharge Rate: %d", 0-battman.discharge_rate);
   }
   
   prv_format_seconds_elapsed(eta, eta_buffer, sizeof(eta_buffer));
@@ -166,10 +166,10 @@ static void prv_set_batt_data_text(BatteryChargeState state) {
   
   if (charging){
     //snprintf(batt_data_buffer, sizeof(batt_data_buffer), "%d%%, full in %s.\n%s/1%% chrg\n(%d%% %s ago)", percent, eta_buffer, rate_buffer, (int)battman.data[BATTMAN_NUM_SAMPLES-1] & 0x0000007F, last_buffer);
-    snprintf(batt_data_buffer, sizeof(batt_data_buffer), "%d%%, full in %s", percent, eta_buffer);
+    snprintf(batt_data_buffer, sizeof(batt_data_buffer), "full: %s", eta_buffer);
   } else {
     //snprintf(batt_data_buffer, sizeof(batt_data_buffer), "%d%%, %s left.\n%s/1%% drop\n(%d%% %s ago)", percent, eta_buffer, rate_buffer, (int)battman.data[BATTMAN_NUM_SAMPLES-1] & 0x0000007F, last_buffer);
-    snprintf(batt_data_buffer, sizeof(batt_data_buffer), "%d%%, %s left", percent, eta_buffer);
+    snprintf(batt_data_buffer, sizeof(batt_data_buffer), "%s left", eta_buffer);
   }
   text_layer_set_text(s_batt_data_layer, batt_data_buffer);
 }
@@ -395,47 +395,55 @@ static void main_window_load(Window *window) {
 
   #ifdef PBL_PLATFORM_EMERY //Big Rectangle
   // Load custom fonts
-  s_time_font = fonts_get_system_font(FONT_KEY_ROBOTO_BOLD_SUBSET_49);
-  s_date_font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
-  s_info_font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
-  #define date_time_padding 15
+  s_time_font = fonts_get_system_font(FONT_KEY_LECO_60_NUMBERS_AM_PM);
+  s_date_font = fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD);
+  s_info_font = fonts_get_system_font(FONT_KEY_GOTHIC_28);
+  #define date_time_padding 4
   int time_y = 0;
-  int date_y = time_y + 54;
-  int batt_y = date_y + 34;
-  int bar_y = 65;
+  int date_y = 60;
+  int batt_y = 90;
+  int bar_y = 97;
+  int bar_width = 46;
+  int bar_height = 23;
   
   #elif PBL_PLATFORM_CHALK //Small Circle
   // Load custom fonts
-  s_time_font = fonts_get_system_font(FONT_KEY_BITHAM_34_MEDIUM_NUMBERS);
-  s_date_font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
-  s_info_font = fonts_get_system_font(FONT_KEY_GOTHIC_18);
-  #define date_time_padding 10
-  int time_y = 54;
-  int date_y = 30;
-  int batt_y = 95;
-  int bar_y = 10;
+  s_time_font = fonts_get_system_font(FONT_KEY_LECO_42_NUMBERS);
+  s_date_font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
+  s_info_font = fonts_get_system_font(FONT_KEY_GOTHIC_24);
+  #define date_time_padding 20
+  int time_y = 36;//32;
+  int date_y = 18;//12;
+  int batt_y = 138;//132;
+  int bar_y = 7;//158;
+  int bar_width = 34;
+  int bar_height = 17;
   
   #elif PBL_PLATFORM_GABBRO //Big Circle
   // Load custom fonts
-  s_time_font = fonts_get_system_font(FONT_KEY_ROBOTO_BOLD_SUBSET_49);
-  s_date_font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
-  s_info_font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
-  #define date_time_padding 10
-  int time_y = 74;
-  int date_y = 42;
-  int batt_y = 130;
-  int bar_y = 20;
+  s_time_font = fonts_get_system_font(FONT_KEY_LECO_60_NUMBERS_AM_PM);
+  s_date_font = fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD);
+  s_info_font = fonts_get_system_font(FONT_KEY_GOTHIC_28);
+  #define date_time_padding 30
+  int time_y = 54;
+  int date_y = 36;
+  int batt_y = 200;
+  int bar_y = 15;
+  int bar_width = 46;
+  int bar_height = 23;
   
   #else //It's a small rectange (OG or Time)
   // Load custom fonts
-  s_time_font = fonts_get_system_font(FONT_KEY_BITHAM_34_MEDIUM_NUMBERS);
-  s_date_font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
-  s_info_font = fonts_get_system_font(FONT_KEY_GOTHIC_18);
-  #define date_time_padding 10
+  s_time_font = fonts_get_system_font(FONT_KEY_LECO_42_NUMBERS);
+  s_date_font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
+  s_info_font = fonts_get_system_font(FONT_KEY_GOTHIC_24);
+  #define date_time_padding 3
   int time_y = 0;
-  int date_y = time_y + 44;
-  int batt_y = date_y + 24;
-  int bar_y = 50;
+  int date_y = 42;
+  int batt_y = 65;
+  int bar_y = 73;
+  int bar_width = 34;
+  int bar_height = 17;
   #endif
 
   // Create the time TextLayer
@@ -444,7 +452,7 @@ static void main_window_load(Window *window) {
   text_layer_set_background_color(s_time_layer, GColorClear);
   text_layer_set_text_color(s_time_layer, settings.TextColor);
   text_layer_set_font(s_time_layer, s_time_font);
-  text_layer_set_text_alignment(s_time_layer, PBL_IF_RECT_ELSE (GTextAlignmentLeft, GTextAlignmentCenter));
+  text_layer_set_text_alignment(s_time_layer, GTextAlignmentCenter);
 
   // Create the date TextLayer — just below the time
   s_date_layer = text_layer_create(
@@ -452,7 +460,7 @@ static void main_window_load(Window *window) {
   text_layer_set_background_color(s_date_layer, GColorClear);
   text_layer_set_text_color(s_date_layer, settings.TextColor);
   text_layer_set_font(s_date_layer, s_date_font);
-  text_layer_set_text_alignment(s_date_layer, PBL_IF_RECT_ELSE (GTextAlignmentLeft, GTextAlignmentCenter));
+  text_layer_set_text_alignment(s_date_layer, GTextAlignmentCenter);
   
   // Create battery data TextLayer — just below the date
   s_batt_data_layer = text_layer_create(
@@ -460,22 +468,22 @@ static void main_window_load(Window *window) {
   text_layer_set_background_color(s_batt_data_layer, GColorClear);
   text_layer_set_text_color(s_batt_data_layer, settings.TextColor);
   text_layer_set_font(s_batt_data_layer, s_info_font);
-  text_layer_set_text_alignment(s_batt_data_layer, PBL_IF_RECT_ELSE (GTextAlignmentRight, GTextAlignmentCenter));
+  text_layer_set_text_alignment(s_batt_data_layer, PBL_IF_RECT_ELSE (GTextAlignmentLeft, GTextAlignmentCenter));
   text_layer_set_text(s_batt_data_layer, "Collecting Battery Data");
 
   // Create battery meter Layer — visible bar near the top
-  int bar_width = 34;
   int bar_x = (bounds.size.w - bar_width - date_time_padding); //this right-aligns the battery bar
   #ifndef PBL_RECT
   bar_x = (bounds.size.w - bar_width) / 2; //this centers the battery bar
   #endif
-  s_battery_layer = layer_create(GRect(bar_x, bar_y, bar_width, 12));
+  s_battery_layer = layer_create(GRect(bar_x, bar_y, bar_width, bar_height));
   layer_set_update_proc(s_battery_layer, battery_update_proc);
   
   // Create the battery stats Layer
   int stats_width = bounds.size.w - (2*date_time_padding);
-  int stats_height = stats_width / 2;
-  s_stats_layer = layer_create(GRect(date_time_padding, bounds.size.h - stats_height - date_time_padding, stats_width, stats_height));
+  int stats_height = PBL_IF_RECT_ELSE (stats_width / 2, 2 * stats_width / 5);
+  int stats_y = PBL_IF_RECT_ELSE (bounds.size.h - stats_height - date_time_padding, bounds.size.h - stats_height - 2*date_time_padding);
+  s_stats_layer = layer_create(GRect(date_time_padding, stats_y, stats_width, stats_height));
   layer_set_update_proc(s_stats_layer, stats_update_proc);
 
   // Add layers to the Window
