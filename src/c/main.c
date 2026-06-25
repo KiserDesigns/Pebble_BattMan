@@ -8,7 +8,7 @@
 typedef struct ClaySettings {
   GColor BackgroundColor;
   GColor TextColor;
-  bool TemperatureUnit; // false = Celsius, true = Fahrenheit
+  bool TemperatureUnit; // UNUSED false = Celsius, true = Fahrenheit
   int DateFormat;
   #ifdef PBL_RGB_BACKLIGHT
   GColor LightColor;
@@ -45,6 +45,9 @@ static void prv_default_settings() {
   settings.BackgroundColor = GColorBlack;
   settings.TextColor = GColorWhite;
   settings.DateFormat = 0; //Thu, Jun 25
+  #ifdef PBL_RGB_BACKLIGHT
+  settings.LightColor = GColorWhite;
+  #endif
 }
 
 
@@ -98,8 +101,8 @@ static void update_time() {
 
   static char s_date_buffer[16];
 
-  const char* date_formats[9] = {"%a, %b %d",   "%a, %d %b",   "%b %d",  "%d %b",  "%d", "%A",     "%A %d",     "%F",         "%D"};
-  //                             "Mon, Apr 25", "Mon, 25 Apr", "Apr 25", "25 Apr", "25", "Monday", "Monday 25", "2026-04-25", "04/25/2026",
+  const char* date_formats[9] = {"%x",     "%a, %b %d",   "%a, %d %b",   "%m/%d/%Y",   "%m-%d-%Y",   "%d/%m/%Y",   "%d-%m-%Y",   "%Y/%m/%d",   "%Y-%m-%d"};
+  //                             "locale", "Mon, Apr 25", "Mon, 25 Apr", "mm/dd/yyyy", "mm-dd-yyyy", "dd/mm/yyyy", "dd-mm-yyyy", "yyyy/mm/dd", "yyyy-mm-dd"
   strftime(s_date_buffer, sizeof(s_date_buffer), date_formats[settings.DateFormat], tick_time);
   text_layer_set_text(s_date_layer, s_date_buffer);
   
@@ -285,14 +288,16 @@ static void battery_update_proc(Layer *layer, GContext *ctx) {
   GRect bounds = layer_get_bounds(layer);
   int nub_w = bounds.size.w/12;
   int nub_h = nub_w * 2 + 1;
-  int fill_width = ((s_battery_level * (bounds.size.w - nub_w)) / 100);
+  int body_w = bounds.size.w - nub_w - 1;
+  int fill_width = ((s_battery_level * body_w) / 100);
   
   GColor8 mid_color = {((((settings.TextColor.argb & 0x2A) + (settings.BackgroundColor.argb & 0x2A) )>>1) + (settings.TextColor.argb & 0x15)) | 0xC0};
   //Draw filled battery background, with color that is average of text and background colors
   graphics_context_set_fill_color(ctx, mid_color);
   
-  graphics_fill_rect(ctx, GRect(0,0, bounds.size.w-nub_w, bounds.size.h), nub_w, GCornersAll);
+  graphics_fill_rect(ctx, GRect(0,0, body_w, bounds.size.h), nub_w, GCornersAll);
   
+  //draw the nub on the right side
   graphics_fill_rect(ctx, GRect(bounds.size.w-nub_w, (bounds.size.h-nub_h)/2, nub_w, nub_h), nub_w, GCornersRight);
   
   //Draw filled battery level in text color
@@ -471,7 +476,7 @@ static void main_window_load(Window *window) {
   s_time_font = fonts_get_system_font(FONT_KEY_LECO_60_NUMBERS_AM_PM);
   s_date_font = fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD);
   s_info_font = fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD);
-  #define date_time_padding 1
+  #define date_time_padding 2
   #define stats_padding 0
   int time_y = 0;
   int date_y = 60;
@@ -485,7 +490,7 @@ static void main_window_load(Window *window) {
   s_time_font = fonts_get_system_font(FONT_KEY_LECO_42_NUMBERS);
   s_date_font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
   s_info_font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
-  #define date_time_padding 1
+  #define date_time_padding 2
   #define stats_padding 13
   int time_y = 23  ;
   int date_y = 6;
@@ -499,7 +504,7 @@ static void main_window_load(Window *window) {
   s_time_font = fonts_get_system_font(FONT_KEY_LECO_60_NUMBERS_AM_PM);
   s_date_font = fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD);
   s_info_font = fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD);
-  #define date_time_padding 1
+  #define date_time_padding 2
   #define stats_padding 19
   int time_y = 32;
   int date_y = 10;
@@ -513,7 +518,7 @@ static void main_window_load(Window *window) {
   s_time_font = fonts_get_system_font(FONT_KEY_LECO_42_NUMBERS);
   s_date_font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
   s_info_font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
-  #define date_time_padding 1
+  #define date_time_padding 0
   #define stats_padding 0
   int time_y = 0;
   int date_y = 40;

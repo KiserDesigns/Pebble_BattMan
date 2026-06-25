@@ -82,7 +82,7 @@ module.exports = [
         "label": "Day/Date Format",
         "options": [
           { 
-            "label": "Mon, Apr 25",
+            "label": "Locale Default",
             "value": "1" 
           },
           { 
@@ -90,31 +90,31 @@ module.exports = [
             "value": "2" 
           },
           { 
-            "label": "Apr 25",
+            "label": "Mon, Apr 25",
             "value": "3" 
           },
           { 
-            "label": "25 Apr",
+            "label": "mm/dd/yyyy",
             "value": "4" 
           },
           { 
-            "label": "25",
+            "label": "mm-dd-yyyy",
             "value": "5" 
           },
           { 
-            "label": "Monday",
+            "label": "dd/mm/yyyy",
             "value": "6" 
           },
           { 
-            "label": "Monday 25",
+            "label": "dd-mm-yyyy",
             "value": "7" 
           },
           { 
-            "label": "2026-04-25",
+            "label": "yyyy/mm/dd",
             "value": "8" 
           },
           { 
-            "label": "04/25/26",
+            "label": "yyyy-mm-dd",
             "value": "9" 
           }
         ]
