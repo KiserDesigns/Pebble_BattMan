@@ -196,7 +196,7 @@ static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
 static void stats_update_proc(Layer *layer, GContext *ctx) {
   GRect bounds = layer_get_bounds(layer);
   graphics_context_set_stroke_color(ctx, settings.TextColor);
-  graphics_draw_round_rect(ctx, GRect(-1,0,bounds.size.w+2, bounds.size.h), 0);
+  graphics_draw_round_rect(ctx, GRect(0,0,bounds.size.w, bounds.size.h), 0);
   
   time_t max_t = battman.time_at_empty;
   time_t min_t = 0;
@@ -270,7 +270,7 @@ static void stats_update_proc(Layer *layer, GContext *ctx) {
 
 static void battery_update_proc(Layer *layer, GContext *ctx) {
   GRect bounds = layer_get_bounds(layer);
-  int nub_w = bounds.size.w/15;
+  int nub_w = bounds.size.w/12;
   int nub_h = nub_w * 2 + 1;
   int fill_width = ((s_battery_level * (bounds.size.w - nub_w)) / 100);
   
@@ -285,7 +285,7 @@ static void battery_update_proc(Layer *layer, GContext *ctx) {
   //Draw filled battery level in text color
   graphics_context_set_fill_color(ctx, settings.TextColor);
   
-  graphics_fill_rect(ctx, GRect(0,0, fill_width, bounds.size.h), nub_w, fill_width>=nub_w*2? GCornersAll: GCornersLeft);
+  graphics_fill_rect(ctx, GRect(0,0, fill_width, bounds.size.h), nub_w, fill_width>=bounds.size.w - nub_w - nub_w? GCornersAll: GCornersLeft);
   
   //Draw percentage number in center in background color
   graphics_context_set_text_color(ctx, settings.BackgroundColor);
@@ -438,7 +438,7 @@ static void main_window_load(Window *window) {
   int date_y = 60;
   int batt_y = 192;
   int bar_y = 200;
-  int bar_width = 46;
+  int bar_width = 49;
   int bar_height = 23;
   
   #elif PBL_PLATFORM_CHALK //Small Circle
@@ -452,7 +452,7 @@ static void main_window_load(Window *window) {
   int date_y = 6;
   int batt_y = 130;
   int bar_y = 158;
-  int bar_width = 34;
+  int bar_width = 36;
   int bar_height = 17;
   
   #elif PBL_PLATFORM_GABBRO //Big Circle
@@ -466,7 +466,7 @@ static void main_window_load(Window *window) {
   int date_y = 10;
   int batt_y = 193;
   int bar_y = 227;
-  int bar_width = 46;
+  int bar_width = 49;
   int bar_height = 23;
   
   #else //It's a small rectange (Aplite, Basalt, Diorite, or Flint)
@@ -480,7 +480,7 @@ static void main_window_load(Window *window) {
   int date_y = 40;
   int batt_y = 139;
   int bar_y = 147;
-  int bar_width = 34;
+  int bar_width = 36;
   int bar_height = 17;
   #endif
 
