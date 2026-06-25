@@ -18,7 +18,7 @@
         "messageKeys": [
             "BackgroundColor",
             "TextColor",
-            "ShowDate",
+            "DateFormat",
             "Theme",
             "LightColor"
         ],

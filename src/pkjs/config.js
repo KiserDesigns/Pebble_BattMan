@@ -76,10 +76,48 @@ module.exports = [
         "defaultValue": "Preferences"
       },
       {
-        "type": "toggle",
-        "messageKey": "ShowDate",
-        "label": "Show Date",
-        "defaultValue": true
+        "type": "select",
+        "messageKey": "DateFormat",
+        "defaultValue": "1",
+        "label": "Day/Date Format",
+        "options": [
+          { 
+            "label": "Mon, Apr 25",
+            "value": "1" 
+          },
+          { 
+            "label": "Mon, 25 Apr",
+            "value": "2" 
+          },
+          { 
+            "label": "Apr 25",
+            "value": "3" 
+          },
+          { 
+            "label": "25 Apr",
+            "value": "4" 
+          },
+          { 
+            "label": "25",
+            "value": "5" 
+          },
+          { 
+            "label": "Monday",
+            "value": "6" 
+          },
+          { 
+            "label": "Monday 25",
+            "value": "7" 
+          },
+          { 
+            "label": "2026-04-25",
+            "value": "8" 
+          },
+          { 
+            "label": "04/25/26",
+            "value": "9" 
+          }
+        ]
       }
     ]
   },

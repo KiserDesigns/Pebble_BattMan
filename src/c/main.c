@@ -9,7 +9,7 @@ typedef struct ClaySettings {
   GColor BackgroundColor;
   GColor TextColor;
   bool TemperatureUnit; // false = Celsius, true = Fahrenheit
-  bool ShowDate;
+  int DateFormat;
   #ifdef PBL_RGB_BACKLIGHT
   GColor LightColor;
   #endif
@@ -44,7 +44,7 @@ static Layer *s_window_layer;
 static void prv_default_settings() {
   settings.BackgroundColor = GColorBlack;
   settings.TextColor = GColorWhite;
-  settings.ShowDate = true; //No longer used.
+  settings.DateFormat = 0; //Thu, Jun 25
 }
 
 
@@ -59,6 +59,9 @@ static void prv_load_settings() {
   prv_default_settings();
   // Then override with any saved values
   persist_read_data(SETTINGS_KEY, &settings, sizeof(settings));
+  if(settings.DateFormat > 8 || settings.DateFormat < 0){
+    settings.DateFormat = 0;
+  }
 }
 
 // Apply settings to UI elements
@@ -94,7 +97,10 @@ static void update_time() {
   text_layer_set_text(s_time_layer, s_time_buffer);
 
   static char s_date_buffer[16];
-  strftime(s_date_buffer, sizeof(s_date_buffer), "%a, %b %d", tick_time);
+
+  const char* date_formats[9] = {"%a, %b %d",   "%a, %d %b",   "%b %d",  "%d %b",  "%d", "%A",     "%A %d",     "%F",         "%D"};
+  //                             "Mon, Apr 25", "Mon, 25 Apr", "Apr 25", "25 Apr", "25", "Monday", "Monday 25", "2026-04-25", "04/25/2026",
+  strftime(s_date_buffer, sizeof(s_date_buffer), date_formats[settings.DateFormat], tick_time);
   text_layer_set_text(s_date_layer, s_date_buffer);
   
   battman.process();
@@ -397,19 +403,20 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
   }
   #endif
 
-  Tuple *show_date_t = dict_find(iterator, MESSAGE_KEY_ShowDate);
-  if (show_date_t) {
-    settings.ShowDate = show_date_t->value->int32 == 1;
+  Tuple *date_t = dict_find(iterator, MESSAGE_KEY_DateFormat);
+  if (date_t) {
+    settings.DateFormat = date_t->value->cstring[0] - '1'; //expecting chars '1' - '9', subtracing '1' turns them to numbers 0-8
   }
 
   // Save and apply if any settings were changed
   #ifdef PBL_RGB_BACKLIGHT
-  if (theme_t || bg_color_t || text_color_t || show_date_t || light_color_t) {
+  if (theme_t || bg_color_t || text_color_t || date_t || light_color_t) {
   #else
-  if (theme_t || bg_color_t || text_color_t || show_date_t ) {
+  if (theme_t || bg_color_t || text_color_t || date_t ) {
   #endif
     prv_save_settings();
     prv_update_display();
+    update_time();
   }
 }
 
