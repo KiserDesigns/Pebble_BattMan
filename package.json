@@ -2,7 +2,7 @@
     "author": "KiserDesigns",
     "dependencies": {
         "@rebble/clay": "^1.0.8",
-        "battman": "https://cloudpebble.repebble.com/s3builds/04e50ea3-bf99-4acc-b9b4-8b899a2ac136/package.tar.gz"
+        "battman": "https://cloudpebble.repebble.com/s3builds/60c44d51-b0df-4585-bcf5-24d553f165f8/package.tar.gz"
     },
     "keywords": [
         "pebble-app"
@@ -52,5 +52,5 @@
             "watchface": true
         }
     },
-    "version": "1.1.0"
+    "version": "1.2.0"
 }

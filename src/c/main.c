@@ -83,7 +83,7 @@ static void update_time() {
 
   static char s_time_buffer[8];
   strftime(s_time_buffer, sizeof(s_time_buffer), clock_is_24h_style() ?
-                                                    "%H:%M" : "%I:%M", tick_time);
+                                                    "%H:%M" : (tick_time->tm_hour > 12 ? "%l:%M " : "%l:%M"), tick_time);
   text_layer_set_text(s_time_layer, s_time_buffer);
 
   static char s_date_buffer[16];
@@ -116,11 +116,11 @@ static void prv_format_seconds_elapsed(int e_seconds, char* e_buffer, int e_buff
   }
   
   if (days > 0 && days <= 99){ // < 99 days, XXdXXh
-    snprintf(e_buffer, e_buff_size, "%dd%02dh", days, hours);
+    snprintf(e_buffer, e_buff_size, "%dd %dh", days, hours);
   } else if (hours > 0) { // < 24 hours, XXhXXm
-    snprintf(e_buffer, e_buff_size, "%dh%02dm", hours, minutes);
+    snprintf(e_buffer, e_buff_size, "%dh %dm", hours, minutes);
   } else if (minutes > 0) { // < 1 hours, XXmXXs
-    snprintf(e_buffer, e_buff_size, "%dm%02ds", minutes, seconds);
+    snprintf(e_buffer, e_buff_size, "%dm %ds", minutes, seconds);
   } else { // < 1 minute, XXs    
     snprintf(e_buffer, e_buff_size, "%ds", e_seconds);
   }
@@ -270,6 +270,40 @@ static void stats_update_proc(Layer *layer, GContext *ctx) {
 
 static void battery_update_proc(Layer *layer, GContext *ctx) {
   GRect bounds = layer_get_bounds(layer);
+  int nub_w = bounds.size.w/15;
+  int nub_h = nub_w * 2 + 1;
+  int fill_width = ((s_battery_level * (bounds.size.w - nub_w)) / 100);
+  
+  GColor8 mid_color = {((((settings.TextColor.argb & 0x2A) + (settings.BackgroundColor.argb & 0x2A) )>>1) + (settings.TextColor.argb & 0x15)) | 0xC0};
+  //Draw filled battery background, with color that is average of text and background colors
+  graphics_context_set_fill_color(ctx, mid_color);
+  
+  graphics_fill_rect(ctx, GRect(0,0, bounds.size.w-nub_w, bounds.size.h), nub_w, GCornersAll);
+  
+  graphics_fill_rect(ctx, GRect(bounds.size.w-nub_w, (bounds.size.h-nub_h)/2, nub_w, nub_h), nub_w, GCornersRight);
+  
+  //Draw filled battery level in text color
+  graphics_context_set_fill_color(ctx, settings.TextColor);
+  
+  graphics_fill_rect(ctx, GRect(0,0, fill_width, bounds.size.h), nub_w, fill_width>=nub_w*2? GCornersAll: GCornersLeft);
+  
+  //Draw percentage number in center in background color
+  graphics_context_set_text_color(ctx, settings.BackgroundColor);
+  static char percent_buff[4];
+  int percent_buff_size = sizeof(percent_buff);
+  snprintf(percent_buff, percent_buff_size, "%d", s_battery_level);
+  if (bounds.size.h < 20) { // Aplite, Basalt, Chalk, Diorite, Flint
+    graphics_draw_text(ctx, percent_buff, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD), GRect(0,-4, bounds.size.w-nub_w, bounds.size.h),\
+                     GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, graphics_text_attributes_create());
+  } else { // Emery, Gabbro
+    graphics_draw_text(ctx, percent_buff, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD), GRect(0,-6, bounds.size.w-nub_w, bounds.size.h),\
+                     GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, graphics_text_attributes_create());
+  }
+  
+}
+
+static void battery_update_proc_old(Layer *layer, GContext *ctx) {
+  GRect bounds = layer_get_bounds(layer);
 
   // Find the width of the bar (inside the border)
   int bar_width = ((s_battery_level * (bounds.size.w - 6)) / 100);
@@ -397,12 +431,13 @@ static void main_window_load(Window *window) {
   // Load custom fonts
   s_time_font = fonts_get_system_font(FONT_KEY_LECO_60_NUMBERS_AM_PM);
   s_date_font = fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD);
-  s_info_font = fonts_get_system_font(FONT_KEY_GOTHIC_28);
-  #define date_time_padding 4
+  s_info_font = fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD);
+  #define date_time_padding 1
+  #define stats_padding 1
   int time_y = 0;
   int date_y = 60;
-  int batt_y = 90;
-  int bar_y = 97;
+  int batt_y = 192;
+  int bar_y = 200;
   int bar_width = 46;
   int bar_height = 23;
   
@@ -410,12 +445,13 @@ static void main_window_load(Window *window) {
   // Load custom fonts
   s_time_font = fonts_get_system_font(FONT_KEY_LECO_42_NUMBERS);
   s_date_font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
-  s_info_font = fonts_get_system_font(FONT_KEY_GOTHIC_24);
-  #define date_time_padding 20
-  int time_y = 36;//32;
-  int date_y = 18;//12;
-  int batt_y = 138;//132;
-  int bar_y = 7;//158;
+  s_info_font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
+  #define date_time_padding 1
+  #define stats_padding 15
+  int time_y = 23  ;
+  int date_y = 6;
+  int batt_y = 130;
+  int bar_y = 158;
   int bar_width = 34;
   int bar_height = 17;
   
@@ -423,25 +459,27 @@ static void main_window_load(Window *window) {
   // Load custom fonts
   s_time_font = fonts_get_system_font(FONT_KEY_LECO_60_NUMBERS_AM_PM);
   s_date_font = fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD);
-  s_info_font = fonts_get_system_font(FONT_KEY_GOTHIC_28);
-  #define date_time_padding 30
-  int time_y = 54;
-  int date_y = 36;
-  int batt_y = 200;
-  int bar_y = 15;
+  s_info_font = fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD);
+  #define date_time_padding 1
+  #define stats_padding 23
+  int time_y = 32;
+  int date_y = 10;
+  int batt_y = 193;
+  int bar_y = 227;
   int bar_width = 46;
   int bar_height = 23;
   
-  #else //It's a small rectange (OG or Time)
+  #else //It's a small rectange (Aplite, Basalt, Diorite, or Flint)
   // Load custom fonts
   s_time_font = fonts_get_system_font(FONT_KEY_LECO_42_NUMBERS);
   s_date_font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
-  s_info_font = fonts_get_system_font(FONT_KEY_GOTHIC_24);
-  #define date_time_padding 3
+  s_info_font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
+  #define date_time_padding 1
+  #define stats_padding 1
   int time_y = 0;
   int date_y = 42;
-  int batt_y = 65;
-  int bar_y = 73;
+  int batt_y = 139;
+  int bar_y = 147;
   int bar_width = 34;
   int bar_height = 17;
   #endif
@@ -480,10 +518,10 @@ static void main_window_load(Window *window) {
   layer_set_update_proc(s_battery_layer, battery_update_proc);
   
   // Create the battery stats Layer
-  int stats_width = bounds.size.w - (2*date_time_padding);
-  int stats_height = PBL_IF_RECT_ELSE (stats_width / 2, 2 * stats_width / 5);
-  int stats_y = PBL_IF_RECT_ELSE (bounds.size.h - stats_height - date_time_padding, bounds.size.h - stats_height - 2*date_time_padding);
-  s_stats_layer = layer_create(GRect(date_time_padding, stats_y, stats_width, stats_height));
+  int stats_width = bounds.size.w - (2*stats_padding);
+  int stats_height = PBL_IF_RECT_ELSE (stats_width / 2, 5 * stats_width / 11);
+  int stats_y = PBL_IF_RECT_ELSE (bounds.size.h - stats_height - (bounds.size.h / 7) - 3 ,(bounds.size.h - stats_height) / 2 + (bounds.size.h / 13));
+  s_stats_layer = layer_create(GRect(stats_padding, stats_y, stats_width, stats_height));
   layer_set_update_proc(s_stats_layer, stats_update_proc);
 
   // Add layers to the Window
