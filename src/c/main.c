@@ -196,7 +196,7 @@ static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
 static void stats_update_proc(Layer *layer, GContext *ctx) {
   GRect bounds = layer_get_bounds(layer);
   graphics_context_set_stroke_color(ctx, settings.TextColor);
-  graphics_draw_round_rect(ctx, GRect(0,0,bounds.size.w, bounds.size.h), 0);
+  graphics_draw_round_rect(ctx, GRect(-1,0,bounds.size.w+2, bounds.size.h), 0);
   
   time_t max_t = battman.time_at_empty;
   time_t min_t = 0;
@@ -291,7 +291,7 @@ static void battery_update_proc(Layer *layer, GContext *ctx) {
   graphics_context_set_text_color(ctx, settings.BackgroundColor);
   static char percent_buff[4];
   int percent_buff_size = sizeof(percent_buff);
-  snprintf(percent_buff, percent_buff_size, "%d", s_battery_level);
+  snprintf(percent_buff, percent_buff_size, (s_charging && s_battery_level < 100)?"%d+":"%d", s_battery_level);
   if (bounds.size.h < 20) { // Aplite, Basalt, Chalk, Diorite, Flint
     graphics_draw_text(ctx, percent_buff, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD), GRect(0,-4, bounds.size.w-nub_w, bounds.size.h),\
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, graphics_text_attributes_create());
@@ -433,7 +433,7 @@ static void main_window_load(Window *window) {
   s_date_font = fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD);
   s_info_font = fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD);
   #define date_time_padding 1
-  #define stats_padding 1
+  #define stats_padding 0
   int time_y = 0;
   int date_y = 60;
   int batt_y = 192;
@@ -447,7 +447,7 @@ static void main_window_load(Window *window) {
   s_date_font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
   s_info_font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
   #define date_time_padding 1
-  #define stats_padding 15
+  #define stats_padding 13
   int time_y = 23  ;
   int date_y = 6;
   int batt_y = 130;
@@ -461,7 +461,7 @@ static void main_window_load(Window *window) {
   s_date_font = fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD);
   s_info_font = fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD);
   #define date_time_padding 1
-  #define stats_padding 23
+  #define stats_padding 19
   int time_y = 32;
   int date_y = 10;
   int batt_y = 193;
@@ -475,9 +475,9 @@ static void main_window_load(Window *window) {
   s_date_font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
   s_info_font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
   #define date_time_padding 1
-  #define stats_padding 1
+  #define stats_padding 0
   int time_y = 0;
-  int date_y = 42;
+  int date_y = 40;
   int batt_y = 139;
   int bar_y = 147;
   int bar_width = 34;
