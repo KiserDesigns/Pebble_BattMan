@@ -16,13 +16,11 @@
         "displayName": "BattMan",
         "enableMultiJS": true,
         "messageKeys": [
-            "TEMPERATURE",
-            "CONDITIONS",
-            "REQUEST_WEATHER",
             "BackgroundColor",
             "TextColor",
-            "TemperatureUnit",
-            "ShowDate"
+            "ShowDate",
+            "Theme",
+            "LightColor"
         ],
         "projectType": "native",
         "resources": {

@@ -10,6 +10,9 @@ typedef struct ClaySettings {
   GColor TextColor;
   bool TemperatureUnit; // false = Celsius, true = Fahrenheit
   bool ShowDate;
+  #ifdef PBL_RGB_BACKLIGHT
+  GColor LightColor;
+  #endif
 } ClaySettings;
 
 // An instance of the struct
@@ -67,6 +70,10 @@ static void prv_update_display() {
   text_layer_set_text_color(s_time_layer, settings.TextColor);
   text_layer_set_text_color(s_date_layer, settings.TextColor);
   text_layer_set_text_color(s_batt_data_layer, settings.TextColor);
+  
+  #ifdef PBL_RGB_BACKLIGHT
+  light_set_color(settings.LightColor);
+  #endif
 
   // Show/hide date based on setting
   //FORCE THIS TO BE SHOWN, this is a design choice
@@ -356,18 +363,39 @@ static void bluetooth_callback(bool connected) {
 // AppMessage received handler
 static void inbox_received_callback(DictionaryIterator *iterator, void *context) {
   // Check for Clay settings data
+  bool is_light = false;
+  
+  Tuple *theme_t = dict_find(iterator, MESSAGE_KEY_Theme);
+  if (theme_t) {
+    is_light = (theme_t->value->cstring[0] == 'l');
+  }
+  
   Tuple *bg_color_t = dict_find(iterator, MESSAGE_KEY_BackgroundColor);
   if (bg_color_t) {
-    settings.BackgroundColor = GColorFromHEX(bg_color_t->value->int32);
+    settings.BackgroundColor = GColorFromHEX((bg_color_t->value->int32 | (is_light ? 0xAAAAAA : 0x00)) & (is_light ? 0xFFFFFF : 0x555555));
+    if (gcolor_equal(settings.BackgroundColor, GColorLightGray)){
+      settings.BackgroundColor = GColorWhite;
+    }
     #ifdef PBL_BW
+    settings.BackgroundColor = GColorFromHEX(bg_color_t->value->int32);
     settings.TextColor = gcolor_equal(GColorBlack, settings.BackgroundColor) ? GColorWhite : GColorBlack;
     #endif
   }
 
   Tuple *text_color_t = dict_find(iterator, MESSAGE_KEY_TextColor);
   if (text_color_t) {
-    settings.TextColor = GColorFromHEX(text_color_t->value->int32);
+    settings.TextColor = GColorFromHEX((text_color_t->value->int32 | (is_light ? 0x00 : 0xAAAAAA)) & (is_light ? 0x555555 : 0xFFFFFF));
+    if (gcolor_equal(settings.TextColor, GColorLightGray)){
+      settings.TextColor = GColorWhite;
+    }
   }
+  
+  #ifdef PBL_RGB_BACKLIGHT
+  Tuple *light_color_t = dict_find(iterator, MESSAGE_KEY_LightColor);
+  if (light_color_t) {
+    settings.LightColor = GColorFromHEX(light_color_t->value->int32);
+  }
+  #endif
 
   Tuple *show_date_t = dict_find(iterator, MESSAGE_KEY_ShowDate);
   if (show_date_t) {
@@ -375,7 +403,11 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
   }
 
   // Save and apply if any settings were changed
-  if (bg_color_t || text_color_t || show_date_t) {
+  #ifdef PBL_RGB_BACKLIGHT
+  if (theme_t || bg_color_t || text_color_t || show_date_t || light_color_t) {
+  #else
+  if (theme_t || bg_color_t || text_color_t || show_date_t ) {
+  #endif
     prv_save_settings();
     prv_update_display();
   }
