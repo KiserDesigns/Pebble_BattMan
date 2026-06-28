@@ -18,6 +18,7 @@ module.exports = [
         "messageKey": "Theme",
         "defaultValue": "d",
         "label": "Theme",
+        "description": "'Dark' darkens background, lightens text<br>'Light' lightens background, darkens text",
         "options": [
           { 
             "label": "Dark",
@@ -63,7 +64,8 @@ module.exports = [
                    ["0xFFFFFF", "0xFF0000", "0xFFFF00", "0x00FF00", "0x00FFFF", "0x0000FF", "0xFF00FF"],
                    [false,      "0xFF00AA", "0xFFAA00", "0xAAFF00", "0x00FFAA", "0x00AAFF", "0xAA00FF"],
                    [false,      "0xFF55AA", "0xFFAA55", "0xAAFF55", "0x55FFAA", "0x55AAFF", "0xAA55FF"]],
-        "capabilities": ["PLATFORM_EMERY"]
+        "capabilities": ["PLATFORM_EMERY"],
+        "sunlight": false
       }
       
     ]
@@ -86,11 +88,11 @@ module.exports = [
             "value": "1" 
           },
           { 
-            "label": "Mon, 25 Apr",
+            "label": "Mon, Apr 25",
             "value": "2" 
           },
           { 
-            "label": "Mon, Apr 25",
+            "label": "Mon, 25 Apr",
             "value": "3" 
           },
           { 
@@ -98,20 +100,20 @@ module.exports = [
             "value": "4" 
           },
           { 
-            "label": "mm-dd-yyyy",
-            "value": "5" 
-          },
-          { 
             "label": "dd/mm/yyyy",
             "value": "6" 
           },
           { 
-            "label": "dd-mm-yyyy",
-            "value": "7" 
-          },
-          { 
             "label": "yyyy/mm/dd",
             "value": "8" 
+          },
+          { 
+            "label": "mm-dd-yyyy",
+            "value": "5" 
+          },
+          { 
+            "label": "dd-mm-yyyy",
+            "value": "7" 
           },
           { 
             "label": "yyyy-mm-dd",
