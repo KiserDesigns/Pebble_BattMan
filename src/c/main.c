@@ -96,7 +96,7 @@ static void update_time() {
 
   static char s_time_buffer[8];
   strftime(s_time_buffer, sizeof(s_time_buffer), clock_is_24h_style() ?
-                                                    "%H:%M" : (tick_time->tm_hour > 12 ? "%l:%M " : "%l:%M"), tick_time);
+                                                    "%H:%M" : ((tick_time->tm_hour > 12 && tick_time->tm_hour < 22) || (tick_time->tm_hour > 0 && tick_time->tm_hour < 10) ? "%l:%M " : "%l:%M"), tick_time);
   text_layer_set_text(s_time_layer, s_time_buffer);
 
   static char s_date_buffer[16];
